@@ -184,7 +184,7 @@ export function homeView(root) {
     </article>
     <aside>
       <div class="manifesto">
-        <blockquote>“${esc(S.cfg.manifesto || 'The highest level of life is to learn and to teach. Everything else is either a reward or a byproduct.')}”</blockquote>
+        <blockquote>“${esc(S.cfg.manifesto || 'Learn, Teach, Love, Laugh')}”</blockquote>
         <cite>— ${esc(S.cfg.author || 'Canvito')}</cite>
       </div>
       <div class="ledger">
@@ -389,7 +389,7 @@ export function aboutView(root) {
     <header class="article-head"><div class="kicker">Colophon</div><h1>About this journal</h1>
     <p class="dek">A single home for a lifetime of learning and teaching.</p></header>
     <div class="prose">
-      <p>This is the source of truth for my journey: the things I have learned, the things I have taught, and the artifacts collected along the way. I believe learning and teaching are the highest level of life. Everything else is either a reward or a byproduct.</p>
+      <p>This is the source of truth for my journey: the things I have learned, the things I have taught, and the artifacts collected along the way. My motto: Learn, Teach, Love, Laugh.</p>
       <p>Some pages are open to everyone. Some are <strong>protected</strong> and readable by people I give an access code to. Some are <strong>private</strong> and kept only for me. Sealed pages stay encrypted until the right key opens them, both here and in the repository behind the site.</p>
       <p>If you have an access code, use the <em>Unlock</em> button at the top of the page. If you'd like to say hello, please sign the <a href="#/guestbook">guestbook</a>.</p>
     </div>
