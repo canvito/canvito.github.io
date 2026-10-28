@@ -1,13 +1,15 @@
 // Who is looking, and what can they see. Three modes share one UI:
 //   public — anyone;  guest — redeemed an access code (protected content via the Worker);
-//   owner  — unlocked the keyring with the passphrase (everything decrypted locally).
-import { importAesKey, openKeyring, sealJSON, openJSON, normalizeCode } from './crypto.js';
-import { Vault, TIERS } from './vault.js';
-import { GitHubIO, StaticIO } from './github.js';
+//   owner  — signed in with passphrase + GitHub token; sealed content is read from the PRIVATE vault repo
+//            and decrypted locally.
+import { importAesKey, openKeyring, createKeyring, normalizeCode } from './crypto.js';
+import { Vault, TIERS, paths, isVaultPath } from './vault.js';
+import { GitHubIO, SplitIO } from './github.js';
 
 const OWNER_KEY = 'canvito.owner';
 const GUEST_KEY = 'canvito.guest';
-const PAT_KEY = 'canvito.pat';
+// The author's GitHub token, sealed with a passphrase-derived key, so this device can sign in with the passphrase alone.
+const DEVICE_KEY = 'canvito.device';
 
 export const S = {
   cfg: {},
@@ -70,7 +72,8 @@ function expireGuest() {
 }
 
 export function ownerIO() {
-  return S.pat ? new GitHubIO({ ...S.cfg.repo, token: S.pat }) : new StaticIO('./');
+  if (!S.pat) throw new Error('Sign in as the author first.');
+  return new SplitIO(new GitHubIO({ ...S.cfg.repo, token: S.pat }), new GitHubIO({ ...S.cfg.vault, token: S.pat }), isVaultPath);
 }
 
 export function ownerVault(io = ownerIO()) {
@@ -80,36 +83,44 @@ export function ownerVault(io = ownerIO()) {
 let vaultCache;
 const vault = () => (vaultCache ??= ownerVault());
 
-async function becomeOwner(secrets, persist = true) {
+async function becomeOwner(secrets, pat, persist = true) {
   S.secrets = { protected: secrets.protected, private: secrets.private, adminToken: secrets.adminToken };
   S.keys = { protected: await importAesKey(secrets.protected), private: await importAesKey(secrets.private) };
+  S.pat = pat;
   S.mode = 'owner';
   S.guest = null;
   localStorage.removeItem(GUEST_KEY);
-  if (persist) sessionStorage.setItem(OWNER_KEY, JSON.stringify(S.secrets));
-  const enc = localStorage.getItem(PAT_KEY);
-  S.pat = null;
-  if (enc) {
-    try {
-      S.pat = (await openJSON(S.keys.private, JSON.parse(enc), 'pat')).token;
-    } catch {
-      localStorage.removeItem(PAT_KEY);
-    }
-  }
+  if (persist) sessionStorage.setItem(OWNER_KEY, JSON.stringify({ ...S.secrets, pat }));
   vaultCache = null;
 }
 
-export async function setPat(token) {
-  if (!token) {
-    localStorage.removeItem(PAT_KEY);
-    S.pat = null;
-  } else {
-    const io = new GitHubIO({ ...S.cfg.repo, token });
-    await io.check();
-    localStorage.setItem(PAT_KEY, JSON.stringify(await sealJSON(S.keys.private, { token }, 'pat')));
-    S.pat = token;
+async function openVaultKeyring(passphrase, token) {
+  const io = new GitHubIO({ ...S.cfg.vault, token });
+  let text;
+  try {
+    text = await io.readText(paths.keyring);
+  } catch (e) {
+    if (e.status === 401) throw new Error('GitHub rejected that token.');
+    throw e;
   }
-  vaultCache = null;
+  if (!text) throw new Error(`Cannot read the keyring in ${S.cfg.vault?.owner}/${S.cfg.vault?.name}. Check the token's repository access, or run "node tools/canvito.mjs init".`);
+  const secrets = await openKeyring(JSON.parse(text), passphrase);
+  if (!secrets) throw new Error('Wrong passphrase.');
+  return secrets;
+}
+
+export const hasDevice = () => !!localStorage.getItem(DEVICE_KEY);
+export const forgetDevice = () => localStorage.removeItem(DEVICE_KEY);
+
+// First sign-in on a device (or token replacement): passphrase + fine-grained token with access to both repos.
+export async function authorSignIn(passphrase, token) {
+  token = String(token || '').trim();
+  if (!token) throw new Error('Paste your GitHub token.');
+  const secrets = await openVaultKeyring(passphrase, token);
+  localStorage.setItem(DEVICE_KEY, JSON.stringify(await createKeyring(passphrase, { token })));
+  await becomeOwner(secrets, token);
+  await loadIndex();
+  emit();
 }
 
 export async function boot() {
@@ -117,7 +128,9 @@ export async function boot() {
   const owner = sessionStorage.getItem(OWNER_KEY);
   if (owner) {
     try {
-      await becomeOwner(JSON.parse(owner), false);
+      const o = JSON.parse(owner);
+      if (!o.pat) throw new Error('stale session');
+      await becomeOwner(o, o.pat, false);
     } catch {
       sessionStorage.removeItem(OWNER_KEY);
     }
@@ -173,7 +186,7 @@ export async function assetUrl(postId, tier, asset) {
   if (blobCache.has(ck)) return blobCache.get(ck);
   let url = null;
   const isVault = tier !== 'public' || asset.key;
-  if (!isVault && !(S.mode === 'owner' && S.pat)) return `media/public/${asset.id}.${asset.ext}`;
+  if (!isVault && S.mode !== 'owner') return `media/public/${asset.id}.${asset.ext}`;
   if (S.mode === 'owner') {
     const bytes = await vault().readAsset(asset);
     if (bytes) url = URL.createObjectURL(new Blob([bytes], { type: asset.mime }));
@@ -188,11 +201,11 @@ export async function assetUrl(postId, tier, asset) {
 export async function unlock(secret, turnstileToken) {
   secret = String(secret || '').trim();
   if (!secret) throw new Error('Enter your access code');
-  const keyring = await fetchJSON('data/keyring.json');
-  if (keyring) {
-    const s = await openKeyring(keyring, secret);
-    if (s) {
-      await becomeOwner(s);
+  const device = localStorage.getItem(DEVICE_KEY);
+  if (device) {
+    const d = await openKeyring(JSON.parse(device), secret);
+    if (d) {
+      await becomeOwner(await openVaultKeyring(secret, d.token), d.token);
       await loadIndex();
       emit();
       return { mode: 'owner' };

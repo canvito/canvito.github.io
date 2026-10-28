@@ -1,6 +1,7 @@
 # Instructions for AI agents
 
 This repository is Canvito's personal journal of learning and teaching (GitHub Pages at canvito.github.io).
+Sealed entries and the keyring live in the PRIVATE repo `canvito/canvito-vault`, cloned at `../canvito-vault`.
 **Always go through the CLI** (`node tools/canvito.mjs`). Never hand-edit files in `data/` or `media/`: sealed content is encrypted and the indexes must stay consistent.
 
 ## Before you start
@@ -44,7 +45,7 @@ Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--
 
 1. **Default tier:** when the owner hasn't said, ask. If you can't ask, use `private`. Never make something public unless explicitly told to: git history makes public content permanent.
 2. **Commit messages must never contain titles or details of protected/private entries.** Use `journal: update` (or a public title only for public entries).
-3. After changes: `node tools/canvito.mjs doctor`, then `git add -A && git commit -m "journal: update" && git push`.
+3. After changes: `node tools/canvito.mjs doctor`, then `node tools/canvito.mjs publish` (commits & pushes both repos). Never `git add` vault files to this public repo.
 4. Large videos (> ~25 MB) belong on YouTube/Vimeo (unlisted) and should be embedded with `@[caption](url)`.
 5. Unsupported attachment types (SVG, HTML, executables) are rejected on purpose.
 6. Access codes: `node tools/canvito.mjs codes new --type once|timed|permanent --label "Who" [--hours N]`. Show the code to the owner only; never commit it or write it to files.

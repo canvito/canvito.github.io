@@ -42,6 +42,9 @@ export const paths = {
   vaultAsset: (a) => `media/vault/${a.id}.bin`,
 };
 
+// Sealed files (and the keyring) live in the PRIVATE vault repo; everything else in the public site repo.
+export const isVaultPath = (p) => p === paths.keyring || p.startsWith('data/vault/') || p.startsWith('media/vault/');
+
 export function extOf(name = '', mime = '') {
   const m = String(name).toLowerCase().match(/\.([a-z0-9]{1,8})$/);
   let ext = m?.[1];

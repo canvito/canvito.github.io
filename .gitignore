@@ -6,3 +6,8 @@ worker/.dev.vars
 *.local.json
 .DS_Store
 Thumbs.db
+
+# Sealed content + keyring belong ONLY in the private vault repo (canvito/canvito-vault)
+data/vault/
+media/vault/
+data/keyring.json

@@ -4,6 +4,7 @@
   "author": "Canvito",
   "manifesto": "Learn, Teach, Love, Laugh",
   "repo": { "owner": "canvito", "name": "canvito.github.io", "branch": "main" },
+  "vault": { "owner": "canvito", "name": "canvito-vault", "branch": "main" },
   "workerUrl": "",
   "turnstileSiteKey": "",
   "sessionHours": 12

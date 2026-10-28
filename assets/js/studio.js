@@ -2,8 +2,7 @@
 import { renderMarkdown, mediaRefs } from './markdown.js';
 import { KINDS, TIERS, DATE_RE } from './vault.js';
 import { newRawKey } from './crypto.js';
-import { GitHubIO } from './github.js';
-import { S, api, getPost, ownerIO, ownerVault, refreshAfterWrite, setPat, signOut } from './session.js';
+import { S, api, getPost, ownerIO, ownerVault, refreshAfterWrite, authorSignIn, forgetDevice, signOut } from './session.js';
 import { hydrateMedia } from './views.js';
 import { esc, $, $$, toast, modal, confirmDialog, sealHtml, relTime } from './util.js';
 
@@ -16,15 +15,10 @@ const TABS = [
 ];
 
 function tabs(active) {
-  return `<nav class="studio-tabs">${TABS.map(([k, l]) => `<a href="#/studio${k ? `/${k}` : ''}" class="${active === k ? 'active' : ''}">${l}</a>`).join('')}</nav>
-  ${!S.pat && active !== 'settings' ? `<div class="panel"><strong>Read-only:</strong> add a GitHub token in <a href="#/studio/settings">Settings</a> to publish from the browser.</div>` : ''}`;
+  return `<nav class="studio-tabs">${TABS.map(([k, l]) => `<a href="#/studio${k ? `/${k}` : ''}" class="${active === k ? 'active' : ''}">${l}</a>`).join('')}</nav>`;
 }
 
-function writableIO() {
-  const io = ownerIO();
-  if (!(io instanceof GitHubIO)) throw new Error('Add a GitHub token in Studio → Settings first.');
-  return io;
-}
+const writableIO = () => ownerIO();
 
 const commitMsg = (verb, post) => (post.tier === 'public' ? `journal: ${verb} “${post.title}”` : `journal: ${verb} sealed entry`);
 
@@ -137,7 +131,7 @@ async function editorView(root, id) {
       <input type="file" id="cover-input" accept="image/*" hidden>
       <div class="err" id="ed-err"></div>
       <div class="btn-row">
-        <button class="btn" type="submit" ${S.pat ? '' : 'disabled'}>${id ? 'Save changes' : 'Publish entry'}</button>
+        <button class="btn" type="submit">${id ? 'Save changes' : 'Publish entry'}</button>
         ${id ? `<a class="btn ghost" href="#/p/${encodeURIComponent(id)}">View</a><button class="btn danger" type="button" id="del">Delete</button>` : ''}
         <span class="mono muted small" id="ed-status"></span>
       </div>
@@ -405,44 +399,48 @@ async function gbAdminView(root) {
 // ---------- settings ----------
 async function settingsView(root) {
   const repo = S.cfg.repo || {};
+  const vault = S.cfg.vault || {};
   root.innerHTML = `${tabs('settings')}
   <div class="grid-2" style="gap:2rem;align-items:start">
     <form class="panel" id="pat-form">
-      <h3>Publish from the browser</h3>
-      <p style="font-size:.95rem">Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> with access to <strong>${esc(repo.owner)}/${esc(repo.name)}</strong> only, and permission <strong>Contents: Read and write</strong>. It is stored on this device, encrypted with your private key.</p>
-      <label class="f"><span>GitHub token</span><input class="t" type="password" name="pat" placeholder="${S.pat ? '•••••••• (saved)' : 'github_pat_…'}" autocomplete="off"></label>
+      <h3>Where your journal lives</h3>
+      <p style="font-size:.95rem">Public entries: <strong>${esc(repo.owner)}/${esc(repo.name)}</strong> (public repo).<br>
+      Protected &amp; private entries and your keyring: <strong>${esc(vault.owner)}/${esc(vault.name)}</strong> (private repo, encrypted).</p>
+      <h3>Replace the GitHub token on this device</h3>
+      <p style="font-size:.95rem">Use a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> limited to those two repositories with <strong>Contents: Read and write</strong>. It is stored on this device, sealed with your passphrase.</p>
+      <label class="f"><span>Passphrase</span><input class="t" type="password" name="pass" autocomplete="off" required></label>
+      <label class="f"><span>New GitHub token</span><input class="t" type="password" name="pat" placeholder="github_pat_…" autocomplete="off" required></label>
       <div class="err" id="pat-err"></div>
-      <div class="btn-row"><button class="btn" type="submit">Save token</button>${S.pat ? '<button class="btn ghost" type="button" id="pat-clear">Forget token</button>' : ''}</div>
+      <div class="btn-row"><button class="btn" type="submit">Verify &amp; save</button><button class="btn ghost" type="button" id="forget">Forget this device</button></div>
     </form>
     <div class="panel">
       <h3>Access service</h3>
       <p class="mono small" id="health">Checking…</p>
       <h3 style="margin-top:1.5rem">Session</h3>
-      <p style="font-size:.95rem">You're signed in as the owner in this tab. Closing the tab locks the journal again.</p>
+      <p style="font-size:.95rem">You're signed in as the author in this tab. Closing the tab locks the journal again.</p>
       <button class="btn danger" type="button" id="lock">Lock now</button>
     </div>
   </div>`;
   api('/api/health')
-    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · ${S.cfg.workerUrl}`))
+    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · Vault token ${h.vault ? 'set' : 'MISSING'} · ${S.cfg.workerUrl}`))
     .catch((e) => ($('#health', root).textContent = e.message));
   $('#lock', root).onclick = () => signOut().then(() => (location.hash = '#/'));
-  $('#pat-clear', root)?.addEventListener('click', async () => {
-    await setPat(null);
-    toast('Token removed');
-    settingsView(root);
+  $('#forget', root).addEventListener('click', async () => {
+    if (!(await confirmDialog('Remove the saved token from this device? You will need the token again to sign in here.', 'Forget'))) return;
+    forgetDevice();
+    await signOut();
+    location.hash = '#/';
+    toast('This device no longer remembers you.');
   });
   $('#pat-form', root).addEventListener('submit', async (e) => {
     e.preventDefault();
-    const v = e.target.elements.pat.value.trim();
-    if (!v) return;
+    const f = e.target.elements;
     try {
-      await setPat(v);
-      await refreshAfterWrite();
+      await authorSignIn(f.pass.value, f.pat.value);
       toast('Token verified and saved.');
-      settingsView(root);
+      location.hash = '#/studio/settings';
     } catch (ex) {
       $('#pat-err', root).textContent = ex.message;
     }
   });
 }
-

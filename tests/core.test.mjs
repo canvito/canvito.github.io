@@ -199,17 +199,20 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   const priv = await vault.savePost({ title: 'Diary', date: '2016', tier: 'private', body: 'secret' });
 
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  const vaultApi = 'https://api.github.com/repos/canvito/canvito-vault/contents/';
+  globalThis.fetch = async (url, opts = {}) => {
     const u = String(url);
-    if (!u.startsWith('https://site.test/')) return realFetch(url);
-    const b = await io.readBytes(u.slice('https://site.test/'.length));
+    if (!u.startsWith(vaultApi)) return realFetch(url, opts);
+    assert.equal(opts.headers.Authorization, 'Bearer vault-read-token', 'worker reads the private repo with its token');
+    assert.equal(opts.headers.Accept, 'application/vnd.github.raw');
+    const b = await io.readBytes(u.slice(vaultApi.length).split('?')[0]);
     return b ? new Response(b) : new Response('nf', { status: 404 });
   };
   t.after(() => (globalThis.fetch = realFetch));
 
   const env = {
     KV: new MemKV(), SESSION_SECRET: 'sess', ADMIN_TOKEN: 'admin-token', PROTECTED_KEY: raw.protected,
-    CONTENT_BASE: 'https://site.test/', ALLOWED_ORIGINS: 'https://canvito.github.io', ALLOW_NO_TURNSTILE: '1', SESSION_HOURS: '12',
+    VAULT_REPO: 'canvito/canvito-vault', VAULT_TOKEN: 'vault-read-token', ALLOWED_ORIGINS: 'https://canvito.github.io', ALLOW_NO_TURNSTILE: '1', SESSION_HOURS: '12',
   };
   let ip = 0;
   const call = async (method, path, { body, token, origin, sameIp } = {}) => {

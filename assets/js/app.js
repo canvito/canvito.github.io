@@ -1,4 +1,4 @@
-import { S, boot, onChange, unlock, signOut, isOwner } from './session.js';
+import { S, boot, onChange, unlock, authorSignIn, signOut, isOwner } from './session.js';
 import { homeView, journalView, postView, threadsView, aboutView, notFound } from './views.js';
 import { guestbookView } from './guestbook.js';
 import { esc, $, $$, modal, toast, roman, relTime, turnstileWidget, LOCK_SVG } from './util.js';
@@ -56,31 +56,60 @@ async function openUnlock() {
       <div class="ts" id="unlock-ts"></div>
       <div class="err" id="unlock-err"></div>
       <button class="btn" type="submit" style="width:100%;justify-content:center">Unlock</button>
-    </form>`);
-  const ts = S.cfg.workerUrl ? await turnstileWidget($('#unlock-ts', m.el), S.cfg.turnstileSiteKey).catch(() => ({ token: () => '', reset() {} })) : { token: () => '', reset() {} };
+    </form>
+    <details class="author-signin" style="margin-top:1.2rem">
+      <summary class="mono muted small" style="cursor:pointer">Author sign-in on a new device</summary>
+      <form id="author-form" autocomplete="off" style="margin-top:.8rem">
+        <label class="f"><span>Passphrase</span><input class="t" type="password" name="pass" autocomplete="off" required></label>
+        <label class="f"><span>GitHub token (both repos, Contents read/write)</span><input class="t" type="password" name="token" autocomplete="off" placeholder="github_pat_…" required></label>
+        <div class="err" id="author-err"></div>
+        <button class="btn ghost" type="submit" style="width:100%;justify-content:center">Sign in &amp; remember this device</button>
+      </form>
+    </details>`);
+  const noTs = { token: () => '', reset() {} };
+  const ts = S.cfg.workerUrl ? await turnstileWidget($('#unlock-ts', m.el), S.cfg.turnstileSiteKey).catch(() => noTs) : noTs;
   if (!S.cfg.workerUrl || !S.cfg.turnstileSiteKey) $('#unlock-ts', m.el).remove();
-  const form = $('#unlock-form', m.el);
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button');
-    const err = $('#unlock-err', m.el);
-    err.textContent = '';
+
+  const busy = async (form, errEl, label, fn) => {
+    const btn = form.querySelector('button[type=submit]');
+    errEl.textContent = '';
     btn.disabled = true;
     btn.textContent = 'Checking…';
     try {
-      const r = await unlock(form.elements.secret.value, ts.token());
-      m.close();
-      toast(r.mode === 'owner' ? 'Welcome back. Everything is unsealed.' : `Welcome${r.label ? `, ${r.label}` : ''}.       Protected entries are now visible.`);
-          } catch (ex) {
-      err.textContent = ex.message;
-      ts.reset();
+      await fn();
+    } catch (ex) {
+      errEl.textContent = ex.message;
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Unlock';
+      btn.innerHTML = label;
     }
+  };
+
+  const form = $('#unlock-form', m.el);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    busy(form, $('#unlock-err', m.el), 'Unlock', async () => {
+      try {
+        const r = await unlock(form.elements.secret.value, ts.token());
+        m.close();
+        toast(r.mode === 'owner' ? 'Welcome back. Everything is unsealed.' : `Welcome${r.label ? `, ${r.label}` : ''}. Protected entries are now visible.`);
+      } catch (ex) {
+        ts.reset();
+        throw ex;
+      }
+    });
+  });
+
+  const author = $('#author-form', m.el);
+  author.addEventListener('submit', (e) => {
+    e.preventDefault();
+    busy(author, $('#author-err', m.el), 'Sign in &amp; remember this device', async () => {
+      await authorSignIn(author.elements.pass.value, author.elements.token.value);
+      m.close();
+      toast('Welcome back. This device will remember you; next time just use your passphrase.');
+    });
   });
 }
-
 // ---------- search ----------
 $('#search-form').addEventListener('submit', (e) => {
   e.preventDefault();

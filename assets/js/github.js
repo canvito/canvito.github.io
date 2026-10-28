@@ -105,6 +105,36 @@ export class GitHubIO {
   }
 }
 
+// Routes each path to the public site repo or the private vault repo; commits each repo that changed.
+export class SplitIO {
+  constructor(site, vault, isVault) {
+    Object.assign(this, { site, vault, isVault });
+  }
+  pick(p) {
+    return this.isVault(p) ? this.vault : this.site;
+  }
+  readBytes(p) {
+    return this.pick(p).readBytes(p);
+  }
+  readText(p) {
+    return this.pick(p).readText(p);
+  }
+  write(p, d) {
+    return this.pick(p).write(p, d);
+  }
+  remove(p) {
+    return this.pick(p).remove(p);
+  }
+  get dirty() {
+    return this.site.dirty || this.vault.dirty;
+  }
+  async commit(siteMessage, vaultMessage = 'vault: update') {
+    const vault = await this.vault.commit(vaultMessage);
+    const site = await this.site.commit(siteMessage);
+    return site || vault;
+  }
+}
+
 // Read-only adapter over the published static site (used when no GitHub token is configured).
 export class StaticIO {
   constructor(base = './') {

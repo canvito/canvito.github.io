@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Run the Cloudflare Worker locally on Node with an in-memory KV — no Cloudflare account needed.
 // Usage: node tools/dev-worker.mjs [--port 8787] [--site http://localhost:8080]
+// Sealed content is read from your local vault clone (../canvito-vault or CANVITO_VAULT).
 // Requires `node tools/canvito.mjs login` (uses your cached keys). Turnstile is disabled in this mode.
 import http from 'node:http';
 import { promises as fs, existsSync } from 'node:fs';
@@ -24,6 +25,12 @@ if (!existsSync(cache)) {
   process.exit(1);
 }
 const secrets = JSON.parse(await fs.readFile(cache, 'utf8'));
+const cfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config.json'), 'utf8'));
+const VAULT = path.resolve(process.env.CANVITO_VAULT || path.join(ROOT, '..', cfg.vault?.name || 'canvito-vault'));
+if (!existsSync(VAULT)) {
+  console.error(`Vault clone not found at ${VAULT}`);
+  process.exit(1);
+}
 
 class MemKV {
   m = new Map();
@@ -51,7 +58,7 @@ const env = {
   PROTECTED_KEY: secrets.protected,
   ADMIN_TOKEN: secrets.adminToken,
   SESSION_SECRET: secrets.sessionSecret,
-  CONTENT_BASE: `${site}/`,
+  CONTENT_BASE: `http://localhost:${port}/__vault/`,
   ALLOWED_ORIGINS: site,
   ALLOW_NO_TURNSTILE: '1',
   SESSION_HOURS: '12',
@@ -60,6 +67,11 @@ const env = {
 
 http
   .createServer(async (req, res) => {
+    if (req.url.startsWith('/__vault/')) {
+      const f = path.resolve(VAULT, decodeURIComponent(req.url.slice(9).split('?')[0]));
+      if (!f.startsWith(VAULT) || !existsSync(f)) return res.writeHead(404).end();
+      return res.writeHead(200).end(await fs.readFile(f));
+    }
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const body = chunks.length ? Buffer.concat(chunks) : undefined;

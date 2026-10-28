@@ -78,11 +78,36 @@ async function protectedKey(env) {
   return keyCache.key;
 }
 
+// Sealed content lives in a PRIVATE GitHub repo, read with a read-only fine-grained token (VAULT_TOKEN).
+// CONTENT_BASE (plain HTTP origin) is only used by tests and tools/dev-worker.mjs.
 async function fetchContent(env, path, as = 'json') {
-  const base = env.CONTENT_BASE.endsWith('/') ? env.CONTENT_BASE : `${env.CONTENT_BASE}/`;
-  const r = await fetch(base + path, { cf: { cacheTtl: 30, cacheEverything: true } });
+  let r;
+  if (env.CONTENT_BASE) {
+    const base = env.CONTENT_BASE.endsWith('/') ? env.CONTENT_BASE : `${env.CONTENT_BASE}/`;
+    r = await fetch(base + path);
+  } else {
+    if (!env.VAULT_TOKEN || !env.VAULT_REPO) throw new HttpError(503, 'Vault access is not configured');
+    const cache = typeof caches !== 'undefined' ? caches.default : null;
+    const cacheKey = new Request(`https://vault.cache/${env.VAULT_REPO}/${env.VAULT_BRANCH || 'main'}/${path}`);
+    r = await cache?.match(cacheKey);
+    if (!r) {
+      r = await fetch(`https://api.github.com/repos/${env.VAULT_REPO}/contents/${path}?ref=${encodeURIComponent(env.VAULT_BRANCH || 'main')}`, {
+        headers: {
+          Authorization: `Bearer ${env.VAULT_TOKEN}`,
+          Accept: 'application/vnd.github.raw',
+          'User-Agent': 'canvito-api',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      if (r.ok && cache) {
+        // Only ciphertext is cached at the edge, briefly.
+        const copy = new Response(r.clone().body, { headers: { 'cache-control': 'max-age=60' } });
+        await cache.put(cacheKey, copy);
+      }
+    }
+  }
   if (r.status === 404) return null;
-  if (!r.ok) throw new HttpError(502, 'Content origin unavailable');
+  if (!r.ok) throw new HttpError(502, 'Vault unavailable');
   return as === 'json' ? r.json() : new Uint8Array(await r.arrayBuffer());
 }
 
@@ -297,7 +322,7 @@ async function route(req, env) {
   const p = url.pathname.replace(/\/+$/, '');
   const m = req.method;
   let r;
-  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY });
+  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE) });
   if (p === '/api/redeem' && m === 'POST') return redeem(req, env);
   if (p === '/api/session' && m === 'GET') {
     const s = await requireGuest(req, env);

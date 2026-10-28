@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // Canvito CLI — manage the journal from a terminal or an AI agent.
 // Run `node tools/canvito.mjs help` for usage.
-import { promises as fs, existsSync, createReadStream, statSync } from 'node:fs';
+import { promises as fs, existsSync, createReadStream, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 import readline from 'node:readline';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createKeyring, openKeyring, importAesKey, newRawKey, sealJSON, b64urlEncode, randomBytes, sha256Hex } from '../assets/js/crypto.js';
-import { Vault, paths, KINDS, TIERS, MIME, extOf } from '../assets/js/vault.js';
+import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf } from '../assets/js/vault.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_DIR = path.join(os.homedir(), '.canvito');
@@ -17,13 +17,14 @@ const KEY_DIR = path.join(os.homedir(), '.canvito');
 const HELP = `Canvito CLI
 
 Setup
-  init                         Create keyring + vault (prompts for owner passphrase)
+  init                         Create keyring + encrypted indexes in the vault repo (prompts for passphrase)
   login / logout               Cache / forget decrypted keys on this machine (~/.canvito)
   passwd                       Change the owner passphrase
-  worker-secrets [--push] [--turnstile-secret S]
+  worker-secrets [--push] [--turnstile-secret S] [--vault-token T]
                                Print (or push via wrangler) the Cloudflare Worker secrets
   rekey protected              Rotate the protected key (revokes every key ever handed out); re-run worker-secrets --push
   doctor                       Decrypt everything and verify attachments exist
+  publish                      Commit & push the vault repo and the site repo (generic messages)
 
 Entries
   list [--tier T] [--kind K] [--tag X] [--q text] [--json]
@@ -50,7 +51,8 @@ Values: kind = ${Object.keys(KINDS).join('|')}; tier = ${TIERS.join('|')};
 date = YYYY | YYYY-MM | YYYY-MM-DD | YYYY-MM-DDTHH:mm (backdating welcome).
 Local file paths in Markdown (![cap](./photo.jpg), @[cap](./talk.pdf)) are uploaded automatically —
 encrypted when the entry is protected/private.
-Env: CANVITO_PASSPHRASE (skip prompt), CANVITO_KEYS (alternate key cache file).`;
+Sealed entries + keyring live in the PRIVATE vault repo, cloned next to this repo (../canvito-vault).
+Env: CANVITO_PASSPHRASE (skip prompt), CANVITO_KEYS (alternate key cache file), CANVITO_VAULT (vault clone path).`;
 
 // ---------- args ----------
 function parseArgs(argv) {
@@ -106,6 +108,43 @@ class NodeIO {
   }
 }
 
+let vaultDirCache;
+function vaultDir() {
+  if (vaultDirCache) return vaultDirCache;
+  const cfg = JSON.parse(readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+  const v = cfg.vault || { owner: 'canvito', name: 'canvito-vault' };
+  const dir = path.resolve(process.env.CANVITO_VAULT || path.join(ROOT, '..', v.name));
+  if (!existsSync(dir)) die(`Vault repo not found at ${dir}.\n  Clone it: gh repo clone ${v.owner}/${v.name} "${dir}"   (or set CANVITO_VAULT)`);
+  return (vaultDirCache = dir);
+}
+const keyringPath = () => path.join(vaultDir(), paths.keyring);
+
+// Routes sealed paths to the private vault clone and everything else to this (public) repo.
+class SplitNodeIO {
+  constructor() {
+    this.site = new NodeIO(ROOT);
+    this.vault = new NodeIO(vaultDir());
+  }
+  pick(p) {
+    return isVaultPath(p) ? this.vault : this.site;
+  }
+  readBytes(p) {
+    return this.pick(p).readBytes(p);
+  }
+  readText(p) {
+    return this.pick(p).readText(p);
+  }
+  write(p, d) {
+    return this.pick(p).write(p, d);
+  }
+  remove(p) {
+    return this.pick(p).remove(p);
+  }
+  get changed() {
+    return new Set([...this.site.changed, ...this.vault.changed]);
+  }
+}
+
 // ---------- prompts ----------
 function ask(question, { hidden = false } = {}) {
   return new Promise((resolve) => {
@@ -140,7 +179,7 @@ const readJsonFile = async (f) => JSON.parse(await fs.readFile(f, 'utf8'));
 const keyCacheFile = async () => process.env.CANVITO_KEYS || path.join(KEY_DIR, `keys-${(await sha256Hex(ROOT.toLowerCase())).slice(0, 10)}.json`);
 
 async function keyring() {
-  const f = path.join(ROOT, paths.keyring);
+  const f = keyringPath();
   if (!existsSync(f)) die('No keyring yet. Run: node tools/canvito.mjs init');
   return readJsonFile(f);
 }
@@ -155,7 +194,7 @@ async function loadSecrets({ optional = false } = {}) {
   const cache = await keyCacheFile();
   if (existsSync(cache)) return readJsonFile(cache);
   if (process.env.CANVITO_PASSPHRASE) return unlockSecrets();
-  if (!existsSync(path.join(ROOT, paths.keyring))) {
+  if (!existsSync(keyringPath())) {
     if (optional) return {};
     die('No keyring yet. Run: node tools/canvito.mjs init');
   }
@@ -169,7 +208,7 @@ async function openVault(opts) {
   const keys = {};
   if (s.protected) keys.protected = await importAesKey(s.protected);
   if (s.private) keys.private = await importAesKey(s.private);
-  return { vault: new Vault(new NodeIO(ROOT), keys), secrets: s };
+  return { vault: new Vault(new SplitNodeIO(), keys), secrets: s };
 }
 
 // ---------- front matter ----------
@@ -250,7 +289,7 @@ async function save(vault, input, baseDir) {
 }
 
 function printGitHint(vault) {
-  if (vault.io.changed.size) console.log(`  ${vault.io.changed.size} file(s) changed. Publish: git add -A && git commit -m "journal: update" && git push`);
+  if (vault.io.changed.size) console.log(`  ${vault.io.changed.size} file(s) changed. Publish: node tools/canvito.mjs publish`);
 }
 
 // ---------- worker api ----------
@@ -275,7 +314,7 @@ const commands = {
   },
 
   async init({ flags }) {
-    const f = path.join(ROOT, paths.keyring);
+    const f = keyringPath();
     if (existsSync(f) && !flags.force) die('Keyring already exists. (--force would make all existing protected/private entries unreadable.)');
     console.log('Choose your OWNER passphrase. It unlocks private entries and the Studio. It is never stored anywhere.');
     const pass = await passphrase(true);
@@ -287,12 +326,12 @@ const commands = {
       sessionSecret: b64urlEncode(randomBytes(32)),
       createdAt: new Date().toISOString(),
     };
-    const io = new NodeIO(ROOT);
+    const io = new SplitNodeIO();
     await io.write(paths.keyring, JSON.stringify(await createKeyring(pass, secrets), null, 2));
     const vault = new Vault(io, { protected: await importAesKey(secrets.protected), private: await importAesKey(secrets.private) });
     for (const t of ['protected', 'private']) await vault.writeIndex(t, { v: 1, posts: [] });
     if (!existsSync(path.join(ROOT, paths.index('public')))) await vault.writeIndex('public', { v: 1, posts: [] });
-    console.log('✔ Keyring created at data/keyring.json and empty encrypted indexes written.');
+    console.log(`✔ Keyring + empty encrypted indexes written to the PRIVATE vault repo at ${vaultDir()}`);
     console.log('Next: node tools/canvito.mjs login   then   node tools/canvito.mjs worker-secrets --push');
   },
 
@@ -314,14 +353,15 @@ const commands = {
     console.log('New passphrase:');
     delete process.env.CANVITO_PASSPHRASE;
     const pass = await passphrase(true);
-    await fs.writeFile(path.join(ROOT, paths.keyring), JSON.stringify(await createKeyring(pass, s), null, 2));
-    console.log('✔ Passphrase changed. Commit data/keyring.json.');
+    await fs.writeFile(keyringPath(), JSON.stringify(await createKeyring(pass, s), null, 2));
+    console.log('✔ Passphrase changed. Run: node tools/canvito.mjs publish   (then sign in again on each device with the new passphrase + token)');
   },
 
   async 'worker-secrets'({ flags }) {
     const s = await loadSecrets();
     const vals = { PROTECTED_KEY: s.protected, ADMIN_TOKEN: s.adminToken, SESSION_SECRET: s.sessionSecret };
     if (typeof flags['turnstile-secret'] === 'string') vals.TURNSTILE_SECRET = flags['turnstile-secret'];
+    if (typeof flags['vault-token'] === 'string') vals.VAULT_TOKEN = flags['vault-token'];
     if (!flags.push) {
       for (const [k, v] of Object.entries(vals)) console.log(`${k}=${v}`);
       console.log('\nSet each with: cd worker && npx wrangler secret put NAME   (or re-run with --push)');
@@ -342,9 +382,9 @@ const commands = {
     const pass = await passphrase();
     const s = await openKeyring(await keyring(), pass);
     if (!s) die('Wrong passphrase');
-    const vault = new Vault(new NodeIO(ROOT), { protected: await importAesKey(s.protected), private: await importAesKey(s.private) });
+    const vault = new Vault(new SplitNodeIO(), { protected: await importAesKey(s.protected), private: await importAesKey(s.private) });
     s[pos[0]] = await vault.rekey(pos[0]);
-    await fs.writeFile(path.join(ROOT, paths.keyring), JSON.stringify(await createKeyring(pass, s), null, 2));
+    await fs.writeFile(keyringPath(), JSON.stringify(await createKeyring(pass, s), null, 2));
     if (existsSync(await keyCacheFile())) await fs.writeFile(await keyCacheFile(), JSON.stringify(s), { mode: 0o600 });
     console.log(`✔ Re-encrypted ${pos[0]} tier with a new key.`);
     if (pos[0] === 'protected') console.log('Now run: node tools/canvito.mjs worker-secrets --push   and publish (git push).');
@@ -479,6 +519,27 @@ const commands = {
       await workerApi(s, sub === 'approve' ? 'POST' : 'DELETE', `/api/admin/guestbook/${pos[1]}${sub === 'approve' ? '/approve' : ''}`);
       console.log('✔ Done');
     } else die('Usage: guestbook list|approve|delete');
+  },
+
+  publish({ flags }) {
+    const git = (dir, args) => {
+      const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+      if (r.status !== 0) die(`git ${args.join(' ')} failed in ${dir}:\n${r.stderr || r.stdout}`);
+      return r.stdout;
+    };
+    const site = git(ROOT, ['status', '--porcelain']);
+    if (/(^|\s)(data\/vault\/|media\/vault\/|data\/keyring\.json)/m.test(site)) die('Sealed files are staged in the PUBLIC repo — refusing to publish. Check .gitignore.');
+    const repos = [['vault', vaultDir(), 'vault: update'], ['site', ROOT, typeof flags.message === 'string' ? flags.message : 'journal: update']];
+    for (const [name, dir, msg] of repos) {
+      if (!git(dir, ['status', '--porcelain']).trim()) {
+        console.log(`· ${name}: nothing to publish`);
+        continue;
+      }
+      git(dir, ['add', '-A']);
+      git(dir, ['commit', '-q', '-m', msg]);
+      git(dir, ['push', '-q']);
+      console.log(`✔ ${name} published`);
+    }
   },
 
   serve({ flags }) {
