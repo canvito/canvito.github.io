@@ -1,1 +1,59 @@
-"hello world" 
+<!doctype html>
+<html lang="en" data-theme="day">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://api.github.com https://*.workers.dev https://challenges.cloudflare.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com https://docs.google.com https://drive.google.com https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noai, noimageai">
+  <title>Canvito Life Journey</title>
+  <meta name="description" content="A lifelong journal of learning and teaching.">
+  <meta name="theme-color" content="#f3eee3">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script type="module" src="assets/js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <header class="masthead">
+    <div class="topline">
+      <span id="dateline" class="mono"></span>
+      <span class="topline-right">
+        <span id="access" class="access"></span>
+        <button id="theme-toggle" class="icon-btn" type="button" title="Toggle the lamp" aria-label="Toggle dark mode">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </span>
+    </div>
+    <a class="brand" href="#/">
+      <span class="brand-title" id="brand-title">Canvito Life Journey</span>
+      <span class="brand-tag" id="brand-tag">Learn. Teach. Everything else is reward or byproduct.</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#/" data-nav="home">Front Page</a>
+      <a href="#/journal" data-nav="journal">Journal</a>
+      <a href="#/threads" data-nav="threads">Threads</a>
+      <a href="#/guestbook" data-nav="guestbook">Guestbook</a>
+      <a href="#/about" data-nav="about">About</a>
+      <a href="#/studio" data-nav="studio" class="owner-only" hidden>Studio</a>
+      <form class="nav-search" role="search" id="search-form">
+        <input id="search" type="search" placeholder="Search the journal…   /" aria-label="Search" autocomplete="off">
+      </form>
+    </nav>
+  </header>
+
+  <main id="app" tabindex="-1"><div class="loading"><span class="quill"></span>Opening the journal…</div></main>
+
+  <footer class="colophon">
+    <div class="rule-ornament" aria-hidden="true">❦</div>
+    <p><em id="foot-motto">The highest level of life is to learn and to teach.</em></p>
+    <p class="mono small">Set in Fraunces &amp; Newsreader · Encrypted at rest · Hosted on GitHub Pages</p>
+  </footer>
+
+  <div id="modal-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

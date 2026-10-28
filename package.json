@@ -1,0 +1,11 @@
+{
+  "name": "canvito-life-journey",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test tests/core.test.mjs",
+    "serve": "node tools/canvito.mjs serve",
+    "cli": "node tools/canvito.mjs"
+  }
+}

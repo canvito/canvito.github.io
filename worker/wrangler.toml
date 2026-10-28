@@ -1,0 +1,22 @@
+name = "canvito-api"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[vars]
+# Where the encrypted content is published (your GitHub Pages site).
+CONTENT_BASE = "https://canvito.github.io/"
+# Browser origins allowed to call this API (comma separated). Add http://localhost:8080 only while developing.
+ALLOWED_ORIGINS = "https://canvito.github.io"
+# Guest session length (hours) for one-time and time-bound codes. Permanent codes get 30 days per sign-in.
+SESSION_HOURS = "12"
+# "1" publishes public guestbook entries immediately; "0" queues them for your approval in Studio.
+GUESTBOOK_AUTO_APPROVE = "0"
+
+# Created by:  npx wrangler kv namespace create KV   (paste the id below)
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (never commit). Set with:  node tools/canvito.mjs worker-secrets --push
+#   PROTECTED_KEY, ADMIN_TOKEN, SESSION_SECRET, TURNSTILE_SECRET
