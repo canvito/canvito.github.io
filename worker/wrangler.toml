@@ -17,7 +17,7 @@ GUESTBOOK_AUTO_APPROVE = "0"
 # Created by:  npx wrangler kv namespace create KV   (paste the id below)
 [[kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "0d7beba672ac4e9ebe4b930067ccfe6c"
 
 # Secrets (never commit). Set with:  node tools/canvito.mjs worker-secrets --push
 #   PROTECTED_KEY, ADMIN_TOKEN, SESSION_SECRET, TURNSTILE_SECRET, VAULT_TOKEN (read-only token for the vault repo)
