@@ -295,7 +295,7 @@ function printGitHint(vault) {
 // ---------- worker api ----------
 async function workerApi(secrets, method, p, body) {
   const cfg = await readJsonFile(path.join(ROOT, 'config.json'));
-  if (!cfg.workerUrl) die('config.json has no workerUrl yet (deploy the worker first; see README).');
+  if (!cfg.workerUrl) die('config.json has no workerUrl yet (deploy the worker first; see README.md in the private vault repo).');
   if (!secrets.adminToken) die('No admin token in keyring');
   const res = await fetch(cfg.workerUrl.replace(/\/$/, '') + p, {
     method,

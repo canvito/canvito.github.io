@@ -51,4 +51,4 @@ Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--
 6. Access codes: `node tools/canvito.mjs codes new --type once|timed|permanent --label "Who" [--hours N]`. Show the code to the owner only; never commit it or write it to files.
 7. Run `npm test` after changing any code under `assets/js`, `tools`, or `worker`.
 8. Never print, log or commit secrets: the passphrase, GitHub tokens, Worker secrets, or the cached key file in `~/.canvito`. After changing `worker/`, redeploy with `cd worker; npx wrangler deploy` (only when the owner asks).
-9. Deployment details (Worker URL, KV, Turnstile, tokens) are listed under "Current deployment" in README.md. Keep that table accurate if you change infrastructure.
+9. The owner guide (setup, deployment details, maintenance) is README.md in the PRIVATE vault repo (`../canvito-vault/README.md`). Keep its "Current deployment" table accurate if you change infrastructure. Never copy it into this public repo.
