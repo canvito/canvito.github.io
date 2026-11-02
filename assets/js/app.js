@@ -28,7 +28,6 @@ function renderChrome() {
     $('#brand-title').textContent = S.cfg.title;
     document.title = S.cfg.title;
   }
-  if (S.cfg.tagline) $('#brand-tag').textContent = S.cfg.tagline;
   $('#brand-byline').textContent = S.cfg.byline ?? '';
   $('#brand-byline').hidden = !S.cfg.byline;
   const acc = $('#access');
