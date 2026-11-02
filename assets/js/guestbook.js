@@ -8,7 +8,7 @@ export async function guestbookView(root) {
   <div class="gb">
     <form class="gb-form" id="gb-form" autocomplete="off">
       <div class="kicker">Leave your mark</div>
-      <h3 style="margin:.2rem 0 1rem;font-size:1.5rem">Dear ${esc(S.cfg.author || 'Canvito')},</h3>
+      <h3 style="margin:.2rem 0 1rem;font-size:1.5rem">Dear ${esc(S.cfg.author || 'Can')},</h3>
       <label class="f"><span>Your name</span><input class="t" name="name" maxlength="60" required></label>
       <label class="f"><span>Where are you from? (optional)</span><input class="t" name="from" maxlength="60"></label>
       <label class="f"><span>Message</span><textarea class="t" name="message" maxlength="2000" required></textarea></label>

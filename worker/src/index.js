@@ -1,4 +1,4 @@
-// Canvito API — Cloudflare Worker.
+// Little by Little API (Can's journal) — Cloudflare Worker.
 // Responsibilities: access-code redemption (one-time / time-bound / permanent), guest sessions,
 // server-side decryption of PROTECTED content (key never leaves the worker), anonymous guestbook,
 // rate limiting + Turnstile, a private visitor counter (D1), and owner admin endpoints.

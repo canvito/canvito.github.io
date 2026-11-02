@@ -185,7 +185,7 @@ export function homeView(root) {
     <aside>
       <div class="manifesto">
         <blockquote>“${esc(S.cfg.manifesto || 'Learn, Give, Love, Laugh')}”</blockquote>
-        <cite>— ${esc(S.cfg.author || 'Canvito')}</cite>
+        <cite>— ${esc(S.cfg.author || 'Can')}</cite>
       </div>
       <div class="ledger">
         <div><b>${learn}</b><span>Learned</span></div>

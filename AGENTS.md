@@ -1,6 +1,6 @@
 # Instructions for AI agents
 
-This repository is Canvito's personal journal of learning and giving (GitHub Pages at canvito.github.io).
+This repository is Can's personal journal of learning and giving (GitHub Pages at canvito.github.io).
 Sealed entries and the keyring live in the PRIVATE repo `canvito/canvito-vault`, cloned at `../canvito-vault`.
 **Always go through the CLI** (`node tools/canvito.mjs`). Never hand-edit files in `data/` or `media/`: sealed content is encrypted and the indexes must stay consistent.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Canvito CLI — manage the journal from a terminal or an AI agent.
+// Can's journal CLI — manage the journal from a terminal or an AI agent.
 // Run `node tools/canvito.mjs help` for usage.
 import { promises as fs, existsSync, createReadStream, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -15,7 +15,7 @@ import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_DIR = path.join(os.homedir(), '.canvito');
 
-const HELP = `Canvito CLI
+const HELP = `Little by Little (Can's journal) CLI
 
 Setup
   init                         Create keyring + encrypted indexes in the vault repo (prompts for passphrase)
