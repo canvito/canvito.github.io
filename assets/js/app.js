@@ -1,4 +1,4 @@
-import { S, boot, onChange, unlock, authorSignIn, signOut, isOwner } from './session.js';
+import { S, boot, onChange, unlock, authorSignIn, signOut, isOwner, trackVisit } from './session.js';
 import { homeView, journalView, postView, threadsView, aboutView, notFound } from './views.js';
 import { guestbookView } from './guestbook.js';
 import { esc, $, $$, modal, toast, roman, relTime, turnstileWidget, LOCK_SVG } from './util.js';
@@ -158,7 +158,7 @@ async function route() {
     else if (section === 'p' && parts[1]) await postView(view, parts[1]);
     else if (section === 'threads') threadsView(view);
     else if (section === 'guestbook') await guestbookView(view);
-    else if (section === 'about') aboutView(view);
+    else if (section === 'about') await aboutView(view);
     else if (section === 'studio') {
       const { studioView } = await import('./studio.js');
       await studioView(view, parts[1], parts[2]);
@@ -167,6 +167,7 @@ async function route() {
     console.error(e);
     view.innerHTML = `<div class="empty">Something went wrong: ${esc(e.message)}</div>`;
   }
+  trackVisit(pathPart);
   if (lastPath !== pathPart) {
     window.scrollTo({ top: 0, behavior: 'instant' });
     lastPath = pathPart;

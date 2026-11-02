@@ -2,7 +2,7 @@
 //   public — anyone;  guest — redeemed an access code (protected content via the Worker);
 //   owner  — signed in with passphrase + GitHub token; sealed content is read from the PRIVATE vault repo
 //            and decrypted locally.
-import { importAesKey, openKeyring, createKeyring, normalizeCode } from './crypto.js';
+import { importAesKey, openKeyring, createKeyring, normalizeCode, randomId } from './crypto.js';
 import { Vault, TIERS, paths, isVaultPath } from './vault.js';
 import { GitHubIO, SplitIO } from './github.js';
 
@@ -10,6 +10,9 @@ const OWNER_KEY = 'canvito.owner';
 const GUEST_KEY = 'canvito.guest';
 // The author's GitHub token, sealed with a passphrase-derived key, so this device can sign in with the passphrase alone.
 const DEVICE_KEY = 'canvito.device';
+// Visitor counter: anonymous per-browser id; author devices are marked and never counted.
+const VID_KEY = 'canvito.vid';
+const NOTRACK_KEY = 'canvito.notrack';
 
 export const S = {
   cfg: {},
@@ -89,6 +92,7 @@ async function becomeOwner(secrets, pat, persist = true) {
   S.pat = pat;
   S.mode = 'owner';
   S.guest = null;
+  localStorage.setItem(NOTRACK_KEY, '1');
   localStorage.removeItem(GUEST_KEY);
   if (persist) sessionStorage.setItem(OWNER_KEY, JSON.stringify({ ...S.secrets, pat }));
   vaultCache = null;
@@ -240,3 +244,24 @@ export function refreshAfterWrite() {
 }
 
 export const visibleTiers = () => (S.mode === 'owner' ? TIERS : S.mode === 'guest' ? ['public', 'protected'] : ['public']);
+
+let lastHit = { path: null, t: 0 };
+let sentReferrer = false;
+// Records one page view with the private visitor counter (skipped for the author's devices).
+export function trackVisit(pathPart) {
+  if (!S.cfg.workerUrl || S.mode === 'owner' || localStorage.getItem(NOTRACK_KEY)) return;
+  const path = `#${String(pathPart || '/').split('?')[0]}`;
+  const now = Date.now();
+  if (lastHit.path === path && now - lastHit.t < 30_000) return;
+  lastHit = { path, t: now };
+  let vid = localStorage.getItem(VID_KEY);
+  if (!/^[a-z0-9]{8,40}$/.test(vid || '')) {
+    vid = randomId(16);
+    localStorage.setItem(VID_KEY, vid);
+  }
+  const headers = { 'content-type': 'application/json' };
+  if (S.guest) headers.Authorization = `Bearer ${S.guest.token}`;
+  const ref = sentReferrer ? '' : document.referrer;
+  sentReferrer = true;
+  fetch(`${S.cfg.workerUrl.replace(/\/$/, '')}/api/hit`, { method: 'POST', headers, body: JSON.stringify({ vid, path, ref }), keepalive: true }).catch(() => {});
+}

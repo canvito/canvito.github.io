@@ -1,11 +1,12 @@
 // Canvito API — Cloudflare Worker.
 // Responsibilities: access-code redemption (one-time / time-bound / permanent), guest sessions,
 // server-side decryption of PROTECTED content (key never leaves the worker), anonymous guestbook,
-// rate limiting + Turnstile, and owner admin endpoints.
+// rate limiting + Turnstile, a private visitor counter (D1), and owner admin endpoints.
 import {
   b64decode, importAesKey, openJSON, decryptBytes, sha256Hex, signToken, verifyToken,
   timingSafeEqual, generateCode, hashCode, normalizeCode, randomId,
 } from '../../assets/js/crypto.js';
+import { recordHit, listVisits } from './visits.js';
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const ASSET_RE = /^[a-z0-9]{4,40}$/;
@@ -322,7 +323,7 @@ async function route(req, env) {
   const p = url.pathname.replace(/\/+$/, '');
   const m = req.method;
   let r;
-  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE) });
+  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE), visits: !!env.DB });
   if (p === '/api/redeem' && m === 'POST') return redeem(req, env);
   if (p === '/api/session' && m === 'GET') {
     const s = await requireGuest(req, env);
@@ -341,6 +342,7 @@ async function route(req, env) {
     await requireGuest(req, env);
     return vaultMedia(env, r[1], r[2]);
   }
+  if (p === '/api/hit' && m === 'POST') return recordHit(req, env, allowedOrigins(env));
   if (p === '/api/guestbook' && m === 'GET') return guestbookList(env);
   if (p === '/api/guestbook' && m === 'POST') return guestbookPost(req, env);
   if (p.startsWith('/api/admin/')) {
@@ -348,6 +350,7 @@ async function route(req, env) {
     if (p === '/api/admin/codes' && m === 'GET') return adminListCodes(env);
     if (p === '/api/admin/codes' && m === 'POST') return adminCreateCode(req, env);
     if ((r = p.match(/^\/api\/admin\/codes\/([a-f0-9]+)$/)) && m === 'DELETE') return adminRevokeCode(env, r[1], url.searchParams.get('purge') === '1');
+    if (p === '/api/admin/visits' && m === 'GET') return listVisits(url, env, json);
     if (p === '/api/admin/guestbook' && m === 'GET') return adminGuestbook(env);
     if ((r = p.match(/^\/api\/admin\/guestbook\/([a-z0-9]+)\/approve$/)) && m === 'POST') return adminApprove(env, r[1]);
     if ((r = p.match(/^\/api\/admin\/guestbook\/([a-z0-9]+)$/)) && m === 'DELETE') return adminDeleteEntry(env, r[1]);

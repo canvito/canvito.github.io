@@ -6,6 +6,8 @@ import {
 import { renderMarkdown, plainText, mediaRefs } from '../assets/js/markdown.js';
 import { Vault, paths } from '../assets/js/vault.js';
 import worker from '../worker/src/index.js';
+import { aggregate, reportHtml } from '../assets/js/visits.js';
+import { LocalD1 } from '../tools/d1-local.mjs';
 
 class MemIO {
   constructor() {
@@ -280,4 +282,69 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   assert.equal((await call('POST', `/api/admin/guestbook/${pub.id}/approve`, { token: 'admin-token' })).status, 200);
   const list = (await call('GET', '/api/guestbook')).data.entries;
   assert.deepEqual(list.map((e) => e.name), ['A']);
+});
+
+// ---------- visitor counter ----------
+test('worker: records visits privately, labels guests, filters bots, rate limits', async () => {
+  const env = { KV: new MemKV(), DB: new LocalD1(), SESSION_SECRET: 'sess', ADMIN_TOKEN: 'admin-token', ALLOWED_ORIGINS: 'https://canvito.github.io' };
+  const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1';
+  const hit = (body, { origin = 'https://canvito.github.io', ua = UA, ip = '203.0.113.7', token } = {}) => {
+    const headers = { 'content-type': 'application/json', 'User-Agent': ua, 'CF-Connecting-IP': ip };
+    if (origin) headers.Origin = origin;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return worker.fetch(new Request('https://api.test/api/hit', { method: 'POST', headers, body: JSON.stringify(body) }), env);
+  };
+  const rows = async () => (await (await worker.fetch(new Request('https://api.test/api/admin/visits?totals=1', { headers: { Authorization: 'Bearer admin-token' } }), env)).json());
+
+  assert.equal((await hit({ vid: 'abcdefgh12', path: '#/', ref: 'https://www.google.com/search?q=x' })).status, 204);
+  await hit({ vid: 'abcdefgh12', path: '#/journal?q=secret' });
+  const guestTok = await signToken('sess', { c: 'x', exp: Date.now() + 60_000, l: 'Mom' });
+  await hit({ vid: 'zzzzzzzz99', path: '#/p/abc123' }, { token: guestTok, ip: '198.51.100.2' });
+  await hit({ vid: 'botbotbot1', path: '#/' }, { ua: 'Googlebot/2.1' });
+  await hit({ vid: 'noorigin11', path: '#/' }, { origin: null });
+  await hit({ vid: 'BAD', path: '#/' });
+  await hit({ vid: 'abcdefgh12', path: 'javascript:alert(1)' });
+
+  let d = await rows();
+  assert.equal(d.configured, true);
+  assert.equal(d.rows.length, 3, 'bots, missing origin and invalid input are ignored');
+  const [first, second, guest] = d.rows;
+  assert.equal(first.new_visitor, 1);
+  assert.equal(second.new_visitor, 0, 'same browser later is a returning visitor');
+  assert.equal(second.path, '#/journal', 'query strings are not stored');
+  assert.equal(first.referrer, 'google.com');
+  assert.equal(second.referrer, null);
+  assert.equal(guest.guest, 'Mom');
+  assert.deepEqual([first.device, first.browser, first.os], ['mobile', 'Safari', 'iOS']);
+  assert.ok(!JSON.stringify(d.rows).includes('203.0.113.7'), 'raw IP never stored');
+  assert.deepEqual({ views: d.allTime.views, visitors: d.allTime.visitors }, { views: 3, visitors: 2 });
+
+  const since = await (await worker.fetch(new Request(`https://api.test/api/admin/visits?since_id=${guest.id - 1}`, { headers: { Authorization: 'Bearer admin-token' } }), env)).json();
+  assert.equal(since.rows.length, 1, 'live polling reads only new rows');
+  assert.equal((await worker.fetch(new Request('https://api.test/api/admin/visits'), env)).status, 401);
+
+  for (let i = 0; i < 25; i++) await hit({ vid: 'spammer001', path: '#/' }, { ip: '192.0.2.9' });
+  d = await rows();
+  assert.equal(d.rows.filter((r) => r.vid === 'spammer001').length, 20, 'max 20 hits per minute per network');
+});
+
+test('visitor report aggregates unique, new and returning visitors per local day', () => {
+  const day = 86_400_000;
+  const now = Date.UTC(2026, 10, 2, 18, 0);
+  const rows = [
+    { id: 1, ts: now - 2 * day, vid: 'a', path: '#/', new_visitor: 1, country: 'US', device: 'desktop' },
+    { id: 2, ts: now - 1000, vid: 'a', path: '#/journal', new_visitor: 0, country: 'US', device: 'desktop' },
+    { id: 3, ts: now - 500, vid: 'b', path: '#/p/xyz', new_visitor: 1, country: 'VN', device: 'mobile', guest: 'Mom' },
+    { id: 4, ts: now - 100, vid: 'b', path: '#/p/xyz', new_visitor: 0, country: 'VN', device: 'mobile', guest: 'Mom' },
+  ];
+  const agg = aggregate(rows, { from: now - 7 * day, now, tz: -480 });
+  assert.deepEqual(agg.range, { views: 4, visitors: 2, newVisitors: 2, returning: 0 });
+  assert.deepEqual(agg.today, { views: 3, visitors: 2, newVisitors: 1, returning: 1 });
+  assert.equal(agg.daily.length, 8);
+  assert.equal(agg.daily.at(-1).visitors, 2);
+  assert.equal(agg.pages[0].key, '#/p/xyz');
+  assert.deepEqual(agg.guests.map((g) => [g.key, g.views]), [['Mom', 2]]);
+  const html = reportHtml(agg, { titleOf: (id) => (id === 'xyz' ? 'Graduation <day>' : null) });
+  assert.match(html, /Graduation &lt;day&gt;/);
+  assert.doesNotMatch(html, /<day>/);
 });

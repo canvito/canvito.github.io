@@ -10,6 +10,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createKeyring, openKeyring, importAesKey, newRawKey, sealJSON, b64urlEncode, randomBytes, sha256Hex } from '../assets/js/crypto.js';
 import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf } from '../assets/js/vault.js';
+import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_DIR = path.join(os.homedir(), '.canvito');
@@ -43,6 +44,11 @@ Access codes (needs workerUrl in config.json)
 
 Guestbook
   guestbook list | approve <id> | delete <id>
+
+Visitors (private counter; needs workerUrl)
+  visitors summary [--days N | --all]          Totals and top lists in the terminal (default: 30 days)
+  visitors report [--days N | --all] [--out file.html] [--open]
+                               Standalone HTML report (default file: visitors-report-<date>.html)
 
 Dev
   serve [--port 8080]          Preview the site locally
@@ -540,6 +546,41 @@ const commands = {
       git(dir, ['push', '-q']);
       console.log(`✔ ${name} published`);
     }
+  },
+
+  async visitors({ pos, flags }) {
+    const sub = pos[0] || 'summary';
+    if (sub !== 'summary' && sub !== 'report') die('Usage: visitors summary|report [--days N | --all] [--out file.html] [--open]');
+    const { vault, secrets } = await openVault();
+    const days = flags.all ? 0 : Number(flags.days) || 30;
+    const from = days ? Date.now() - days * 86_400_000 : 0;
+    const data = await workerApi(secrets, 'GET', `/api/admin/visits?from=${from}&totals=1`);
+    if (!data.configured) die('The visitor counter is not set up on the Worker (no D1 database bound).');
+    const titles = new Map((await vault.list()).map((m) => [m.id, m.title]));
+    const titleOf = (id) => titles.get(id);
+    const agg = aggregate(data.rows, { from, allTime: data.allTime });
+    const rangeLabel = days ? `Last ${days} days` : 'All time';
+    if (sub === 'summary') {
+      const t = (x) => `${x.visitors} visitors, ${x.views} views${x.newVisitors !== undefined ? ` (${x.newVisitors} new, ${x.returning} returning)` : ''}`;
+      console.log(`Today:        ${t(agg.today)}`);
+      console.log(`${rangeLabel.padEnd(13)} ${t(agg.range)}`);
+      if (agg.allTime) console.log(`All time:     ${t(agg.allTime)}`);
+      const top = (title, items, label = (k) => k, metric = 'visitors') =>
+        items.length && console.log(`\n${title}:\n${items.slice(0, 8).map((x) => `  ${String(x[metric]).padStart(5)}  ${label(x.key)}`).join('\n')}`);
+      top('Top pages (views)', agg.pages, (p) => pageLabel(p, titleOf), 'views');
+      top('Countries', agg.countries);
+      top('Came from', agg.referrers);
+      top('Guests (views)', agg.guests, undefined, 'views');
+      if (data.truncated) console.log('\n(Only the first 100,000 visits were loaded; use a shorter --days range.)');
+      return;
+    }
+    const out = path.resolve(typeof flags.out === 'string' ? flags.out : `visitors-report-${new Date().toISOString().slice(0, 10)}.html`);
+    const cfg = JSON.parse(readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+    await fs.mkdir(path.dirname(out), { recursive: true });
+    await fs.writeFile(out, standaloneReport(agg, { titleOf, siteTitle: cfg.title || 'Little by Little', rangeLabel }), 'utf8');
+    console.log(`✔ Report written: ${out}`);
+    console.log(`  ${agg.range.visitors} visitors · ${agg.range.views} page views (${rangeLabel.toLowerCase()})`);
+    if (flags.open) spawn(process.platform === 'win32' ? 'cmd' : 'open', process.platform === 'win32' ? ['/c', 'start', '', out] : [out], { detached: true, stdio: 'ignore' }).unref();
   },
 
   serve({ flags }) {

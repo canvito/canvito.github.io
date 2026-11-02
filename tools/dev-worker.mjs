@@ -3,6 +3,7 @@
 // Usage: node tools/dev-worker.mjs [--port 8787] [--site http://localhost:8080]
 // Sealed content is read from your local vault clone (../canvito-vault or CANVITO_VAULT).
 // Requires `node tools/canvito.mjs login` (uses your cached keys). Turnstile is disabled in this mode.
+// The visitor counter uses an in-memory SQLite database (lost on exit).
 import http from 'node:http';
 import { promises as fs, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -10,6 +11,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { sha256Hex } from '../assets/js/crypto.js';
 import worker from '../worker/src/index.js';
+import { LocalD1 } from './d1-local.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (k, d) => {
@@ -55,6 +57,7 @@ class MemKV {
 
 const env = {
   KV: new MemKV(),
+  DB: new LocalD1(),
   PROTECTED_KEY: secrets.protected,
   ADMIN_TOKEN: secrets.adminToken,
   SESSION_SECRET: secrets.sessionSecret,

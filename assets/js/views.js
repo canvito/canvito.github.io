@@ -382,8 +382,14 @@ export function threadsView(root) {
 }
 
 // ---------- about ----------
-export function aboutView(root) {
-  if (S.byId.has('about')) return postView(root, 'about', { asPage: true });
+const VISIT_NOTE = '<p class="mono muted small privacy-note">This site counts visits anonymously.</p>';
+
+export async function aboutView(root) {
+  if (S.byId.has('about')) {
+    await postView(root, 'about', { asPage: true });
+    root.querySelector('.article')?.insertAdjacentHTML('beforeend', VISIT_NOTE);
+    return;
+  }
   root.innerHTML = `
   <article class="article">
     <header class="article-head"><div class="kicker">Colophon</div><h1>About this journal</h1>
@@ -393,6 +399,7 @@ export function aboutView(root) {
       <p>Some pages are open to everyone. Some are <strong>protected</strong> and readable by people I give an access code to. Some are <strong>private</strong> and kept only for me. Sealed pages stay encrypted until the right key opens them, both here and in the repository behind the site.</p>
       <p>If you have an access code, use the <em>Unlock</em> button at the top of the page. If you'd like to say hello, please sign the <a href="#/guestbook">guestbook</a>.</p>
     </div>
+    ${VISIT_NOTE}
     ${isOwner() ? '<p class="mono">Tip: create an entry with id <code>about</code> (kind “page”) to replace this text.</p>' : ''}
   </article>`;
 }

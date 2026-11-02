@@ -4,6 +4,7 @@ import { KINDS, TIERS, DATE_RE } from './vault.js';
 import { newRawKey } from './crypto.js';
 import { S, api, getPost, ownerIO, ownerVault, refreshAfterWrite, authorSignIn, forgetDevice, signOut } from './session.js';
 import { hydrateMedia } from './views.js';
+import { aggregate, reportHtml, standaloneReport, REPORT_CSS } from './visits.js';
 import { esc, $, $$, toast, modal, confirmDialog, sealHtml, relTime } from './util.js';
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   ['new', 'New entry'],
   ['codes', 'Access codes'],
   ['guestbook', 'Guestbook'],
+  ['visitors', 'Visitors'],
   ['settings', 'Settings'],
 ];
 
@@ -30,6 +32,7 @@ export async function studioView(root, sub, arg) {
   if (sub === 'new' || sub === 'edit') return editorView(root, sub === 'edit' ? arg : null);
   if (sub === 'codes') return codesView(root);
   if (sub === 'guestbook') return gbAdminView(root);
+  if (sub === 'visitors') return visitorsView(root);
   if (sub === 'settings') return settingsView(root);
   return entriesView(root);
 }
@@ -396,6 +399,107 @@ async function gbAdminView(root) {
   });
 }
 
+// ---------- visitors (private) ----------
+const DAY_MS = 86_400_000;
+const RANGES = [
+  ['today', 'Today'],
+  ['7', 'Last 7 days'],
+  ['30', 'Last 30 days'],
+  ['90', 'Last 90 days'],
+  ['365', 'Last 12 months'],
+  ['all', 'All time'],
+];
+
+function rangeStart(key) {
+  if (key === 'all') return 0;
+  if (key === 'today') {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  return Date.now() - Number(key) * DAY_MS;
+}
+
+async function visitorsView(root) {
+  if (!document.getElementById('vr-css')) {
+    const st = document.createElement('style');
+    st.id = 'vr-css';
+    st.textContent = REPORT_CSS;
+    document.head.append(st);
+  }
+  root.innerHTML = `${tabs('visitors')}
+  <div class="btn-row" style="justify-content:space-between;margin-bottom:1rem">
+    <div class="btn-row">
+      <select class="t" id="vr-range" style="width:auto">${RANGES.map(([k, l]) => `<option value="${k}" ${k === '30' ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <label class="check" style="margin:0"><input type="checkbox" id="vr-live" checked> Live (updates every 30 s)</label>
+    </div>
+    <div class="btn-row"><span class="mono muted small" id="vr-status"></span><button class="btn ghost" type="button" id="vr-dl">Download HTML report</button></div>
+  </div>
+  <div id="vr-body"><div class="loading"><span class="quill"></span>Counting visitors…</div></div>`;
+
+  const st = { rows: [], lastId: 0, allTime: null, from: rangeStart('30'), polls: 0 };
+  const body = $('#vr-body', root);
+  const status = $('#vr-status', root);
+  const titleOf = (id) => S.byId.get(id)?.title;
+  const agg = () => aggregate(st.rows, { from: st.from, allTime: st.allTime });
+  const render = () => {
+    body.innerHTML = reportHtml(agg(), { titleOf });
+    status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  };
+
+  const load = async (full) => {
+    const totals = full || st.polls % 10 === 0;
+    const q = `/api/admin/visits?from=${st.from}&since_id=${full ? 0 : st.lastId}${totals ? '&totals=1' : ''}`;
+    const d = await api(q, { auth: 'admin' });
+    if (!d.configured) {
+      body.innerHTML = '<div class="empty">The visitor counter is not set up on the access service yet.</div>';
+      return false;
+    }
+    if (full) st.rows = d.rows;
+    else st.rows.push(...d.rows);
+    for (const r of d.rows) st.lastId = Math.max(st.lastId, r.id);
+    if (d.allTime) st.allTime = d.allTime;
+    else if (st.allTime && d.rows.length) {
+      st.allTime.views += d.rows.length;
+      st.allTime.visitors += d.rows.filter((r) => r.new_visitor).length;
+    }
+    if (d.truncated) toast('Showing the first 100,000 visits of this period. Pick a shorter range for the rest.', 6000);
+    return true;
+  };
+
+  const refresh = async (full = false) => {
+    try {
+      if (await load(full)) render();
+    } catch (e) {
+      status.textContent = e.message;
+      if (full) body.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    }
+  };
+
+  $('#vr-range', root).addEventListener('change', (e) => {
+    st.from = rangeStart(e.target.value);
+    st.lastId = 0;
+    refresh(true);
+  });
+  $('#vr-dl', root).addEventListener('click', () => {
+    const label = RANGES.find(([k]) => k === $('#vr-range', root).value)?.[1] || '';
+    const html = standaloneReport(agg(), { titleOf, siteTitle: S.cfg.title || 'Little by Little', rangeLabel: label });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = `visitors-${new Date().toISOString().slice(0, 10)}.html`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+
+  await refresh(true);
+  const timer = setInterval(() => {
+    if (!root.isConnected) return clearInterval(timer);
+    if (!$('#vr-live', root).checked || document.visibilityState !== 'visible') return;
+    st.polls++;
+    refresh(false);
+  }, 30_000);
+}
+
 // ---------- settings ----------
 async function settingsView(root) {
   const repo = S.cfg.repo || {};
@@ -422,7 +526,7 @@ async function settingsView(root) {
     </div>
   </div>`;
   api('/api/health')
-    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · Vault token ${h.vault ? 'set' : 'MISSING'} · ${S.cfg.workerUrl}`))
+    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · Vault token ${h.vault ? 'set' : 'MISSING'} · Visitor counter ${h.visits ? 'on' : 'OFF'} · ${S.cfg.workerUrl}`))
     .catch((e) => ($('#health', root).textContent = e.message));
   $('#lock', root).onclick = () => signOut().then(() => (location.hash = '#/'));
   $('#forget', root).addEventListener('click', async () => {

@@ -39,7 +39,7 @@ node tools/canvito.mjs put path\to\entry.md      # run again after edits (id pre
 node tools/canvito.mjs show <id> --out entry.md  # export an existing entry for editing (attachments are kept)
 ```
 
-Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--tag] [--kind] [--tier] [--json]`, `doctor`.
+Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--tag] [--kind] [--tier] [--json]`, `doctor`, `visitors summary|report` (private visitor counter; reports contain sealed titles, so never commit them).
 
 ## Rules
 
@@ -52,4 +52,4 @@ Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--
 7. Run `npm test` after changing any code under `assets/js`, `tools`, or `worker`.
 8. Never print, log or commit secrets: the passphrase, GitHub tokens, Worker secrets, or the cached key file in `~/.canvito`. After changing `worker/`, redeploy with `cd worker; npx wrangler deploy` (only when the owner asks).
 9. The owner guide (setup, deployment details, maintenance) is README.md in the PRIVATE vault repo (`../canvito-vault/README.md`). Keep its "Current deployment" table accurate if you change infrastructure. Never copy it into this public repo.
-10. **Keep the owner's docs current, without being asked.** Any change to features, settings, infrastructure or procedures must update the matching docs in `../canvito-vault/` in the same change: `README.md`, `ENTRIES-GUIDE.md` (entries), `ACCESS-GUIDE.md` (unlocking / access codes), `GUESTBOOK-GUIDE.md` (guestbook). Publish the vault repo and tell the owner which docs changed.
+10. **Keep the owner's docs current, without being asked.** Any change to features, settings, infrastructure or procedures must update the matching docs in `../canvito-vault/` in the same change: `README.md`, `ENTRIES-GUIDE.md` (entries), `ACCESS-GUIDE.md` (unlocking / access codes), `GUESTBOOK-GUIDE.md` (guestbook), `VISITORS-GUIDE.md` (visitor counter). Publish the vault repo and tell the owner which docs changed.
