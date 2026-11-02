@@ -144,6 +144,7 @@ async function route() {
   const section = parts[0] || 'home';
   $$('.nav a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === (section === 'p' ? 'journal' : section)));
   if (section === 'journal' && !params.get('q') && document.activeElement !== $('#search')) $('#search').value = '';
+  if (section !== 'journal' && document.activeElement !== $('#search')) $('#search').value = '';
   if (section === 'journal' && params.get('q') && document.activeElement !== $('#search')) $('#search').value = params.get('q');
   document.title = S.cfg.title || 'Little by Little';
   renderChrome();

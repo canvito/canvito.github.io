@@ -127,6 +127,8 @@ test('vault validates dates and rejects unsafe file types', async () => {
   assert.throws(() => vault.prepareAsset({ name: 'x.html', size: 1 }, 'public'), /Unsupported/);
   const p = await vault.savePost({ title: 'Old memory', date: '1998' });
   assert.equal(p.date, '1998');
+  const g = await vault.savePost({ title: 'Mentored a student', date: '2005', kind: 'teach' });
+  assert.equal(g.kind, 'give', 'legacy kind teach is stored as give');
 });
 
 // ---------- github adapter ----------

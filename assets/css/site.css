@@ -9,7 +9,7 @@
   --rule: #cbbfa8;
   --accent: #8c2f1b;
   --learn: #2f5d50;
-  --teach: #8c2f1b;
+  --give: #8c2f1b;
   --reflect: #3c4f7a;
   --milestone: #a26c12;
   --artifact: #5e4a7a;
@@ -36,7 +36,7 @@
   --rule: #3b342a;
   --accent: #e0805f;
   --learn: #7fbfa8;
-  --teach: #e0805f;
+  --give: #e0805f;
   --reflect: #9fb2e3;
   --milestone: #e2b053;
   --artifact: #c0a7e4;
@@ -154,7 +154,7 @@ h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; font-variation-
 .balance-bar { display: flex; height: 12px; border: 1px solid var(--ink); background: var(--paper-2); }
 .balance-bar i { display: block; height: 100%; }
 .balance-bar .b-learn { background: var(--learn); }
-.balance-bar .b-teach { background: var(--teach); }
+.balance-bar .b-give { background: var(--give); }
 .balance-legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .7rem; color: var(--ink-3); margin-top: .35rem; }
 
 .columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); }
@@ -177,7 +177,7 @@ h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; font-variation-
   padding: .12rem .45rem .08rem; border: 1.5px solid currentColor; border-radius: 3px; transform: rotate(-2deg);
   color: var(--k, var(--ink-3)); line-height: 1.4; text-transform: uppercase; background: color-mix(in srgb, var(--k, var(--ink-3)) 6%, transparent);
 }
-.k-learn { --k: var(--learn); } .k-teach { --k: var(--teach); } .k-reflect { --k: var(--reflect); }
+.k-learn { --k: var(--learn); } .k-give { --k: var(--give); } .k-reflect { --k: var(--reflect); }
 .k-milestone { --k: var(--milestone); } .k-artifact { --k: var(--artifact); } .k-page { --k: var(--page); }
 .date { font-family: var(--mono); font-size: .72rem; color: var(--ink-3); letter-spacing: .04em; }
 
@@ -306,7 +306,7 @@ h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; font-variation-
 .link-card small, .file-card small { font-family: var(--mono); font-size: .7rem; color: var(--ink-3); }
 .callout { border: 1px solid var(--rule); border-left: 4px solid var(--k, var(--reflect)); background: var(--card); padding: .3rem 1.2rem; margin: 1.6rem 0; font-size: 1.08rem; }
 .callout-label { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .16em; color: var(--k, var(--reflect)); margin-top: .7rem; }
-.callout-tip, .callout-lesson { --k: var(--learn); } .callout-warning, .callout-caution { --k: var(--teach); } .callout-important { --k: var(--milestone); }
+.callout-tip, .callout-lesson { --k: var(--learn); } .callout-warning, .callout-caution { --k: var(--give); } .callout-important { --k: var(--milestone); }
 .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
 .prose table { border-collapse: collapse; width: 100%; font-size: 1rem; }
 .prose th, .prose td { border-bottom: 1px solid var(--rule); padding: .45rem .6rem; text-align: left; }

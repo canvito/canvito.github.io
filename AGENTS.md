@@ -1,6 +1,6 @@
 # Instructions for AI agents
 
-This repository is Canvito's personal journal of learning and teaching (GitHub Pages at canvito.github.io).
+This repository is Canvito's personal journal of learning and giving (GitHub Pages at canvito.github.io).
 Sealed entries and the keyring live in the PRIVATE repo `canvito/canvito-vault`, cloned at `../canvito-vault`.
 **Always go through the CLI** (`node tools/canvito.mjs`). Never hand-edit files in `data/` or `media/`: sealed content is encrypted and the indexes must stay consistent.
 
@@ -15,11 +15,11 @@ Write a Markdown file with front matter (anywhere, e.g. a temp folder), then `pu
 
 ```markdown
 ---
-title: First time teaching fractions
+title: Volunteered at the food bank
 date: 2009-09-14          # YYYY | YYYY-MM | YYYY-MM-DD | YYYY-MM-DDTHH:mm — backdating is expected
-kind: teach               # learn | teach | reflect | milestone | artifact | page
+kind: give                # learn | give | reflect | milestone | artifact | page  (old name "teach" also works)
 tier: protected           # public | protected (access-code readers) | private (owner only)
-tags: [teaching, math]
+tags: [giving, community]
 summary: One-sentence dek shown under the title and on cards.
 cover: ./board.jpg        # local path (auto-uploaded), https URL, or media:<id>
 location: Seattle, WA

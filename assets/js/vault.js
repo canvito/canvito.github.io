@@ -7,7 +7,7 @@ import { plainText, mediaRefs } from './markdown.js';
 export const TIERS = ['public', 'protected', 'private'];
 export const KINDS = {
   learn: { label: 'Learned', stamp: 'LEARNED' },
-  teach: { label: 'Taught', stamp: 'TAUGHT' },
+  give: { label: 'Gave', stamp: 'GAVE' },
   reflect: { label: 'Reflection', stamp: 'REFLECTED' },
   milestone: { label: 'Milestone', stamp: 'MILESTONE' },
   artifact: { label: 'Artifact', stamp: 'ARTIFACT' },
@@ -15,6 +15,9 @@ export const KINDS = {
 };
 
 // Backdating supports partial precision: "1998", "2004-09", "2012-05-17", "2012-05-17T08:30".
+// Older name for the 'give' kind, still accepted on input.
+export const KIND_ALIASES = { teach: 'give' };
+
 export const DATE_RE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01])(T([01]\d|2[0-3]):[0-5]\d)?)?)?$/;
 export const ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const ASSET_ID_RE = /^[a-z0-9]{4,40}$/;
@@ -66,7 +69,7 @@ export function normalizePost(input, existing) {
     id: p.id || randomId(10),
     title: String(p.title ?? '').trim(),
     date: String(p.date ?? '').trim() || now.slice(0, 10),
-    kind: KINDS[p.kind] ? p.kind : 'learn',
+    kind: KINDS[KIND_ALIASES[p.kind] || p.kind] ? KIND_ALIASES[p.kind] || p.kind : 'learn',
     tier: TIERS.includes(p.tier) ? p.tier : 'public',
     tags: normTags(p.tags),
     summary: String(p.summary ?? '').trim(),

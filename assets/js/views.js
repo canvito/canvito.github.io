@@ -1,5 +1,5 @@
 import { renderMarkdown, safeUrl } from './markdown.js';
-import { KINDS } from './vault.js';
+import { KINDS, KIND_ALIASES } from './vault.js';
 import { S, getPost, assetUrl, isOwner, visibleTiers } from './session.js';
 import { esc, $, $$, fmtDate, parseDate, weekday, monthName, modal, sealHtml } from './util.js';
 
@@ -15,7 +15,7 @@ export function search(metas, { q = '', kind, tag, year, tier } = {}) {
     const m = tok.match(/^(tag|kind|year|tier|date):"?([^"]+)"?$/);
     if (m) {
       if (m[1] === 'tag') tag = m[2];
-      else if (m[1] === 'kind') kind = m[2];
+      else if (m[1] === 'kind') kind = KIND_ALIASES[m[2]] || m[2];
       else if (m[1] === 'year' || m[1] === 'date') year = m[2];
       else tier = m[2];
     } else terms.push(tok.replace(/"/g, ''));
@@ -160,8 +160,8 @@ export function homeView(root) {
   const count = (k) => all.filter((m) => m.kind === k).length;
   const years = [...new Set(all.map((m) => +m.date.slice(0, 4)))].sort((a, b) => b - a);
   const learn = count('learn');
-  const teach = count('teach');
-  const total = learn + teach || 1;
+  const give = count('give');
+  const total = learn + give || 1;
   const lead = all.find((m) => m.coverAsset || m.cover) || all[0];
   const rest = all.filter((m) => m !== lead).slice(0, 6);
   const span = years.length ? `${years[years.length - 1]}–${years[0]}` : '—';
@@ -189,13 +189,13 @@ export function homeView(root) {
       </div>
       <div class="ledger">
         <div><b>${learn}</b><span>Learned</span></div>
-        <div><b>${teach}</b><span>Taught</span></div>
+        <div><b>${give}</b><span>Gave</span></div>
         <div><b>${count('reflect')}</b><span>Reflections</span></div>
         <div><b>${count('milestone')}</b><span>Milestones</span></div>
       </div>
       <div class="balance">
-        <div class="balance-bar" title="Learn / Teach balance"><i class="b-learn" style="width:${(learn / total) * 100}%"></i><i class="b-teach" style="width:${(teach / total) * 100}%"></i></div>
-        <div class="balance-legend"><span>Learn ${Math.round((learn / total) * 100)}%</span><span>${esc(span)}</span><span>Teach ${Math.round((teach / total) * 100)}%</span></div>
+        <div class="balance-bar" title="Learn / Give balance"><i class="b-learn" style="width:${(learn / total) * 100}%"></i><i class="b-give" style="width:${(give / total) * 100}%"></i></div>
+        <div class="balance-legend"><span>Learn ${Math.round((learn / total) * 100)}%</span><span>${esc(span)}</span><span>Give ${Math.round((give / total) * 100)}%</span></div>
       </div>
     </aside>
   </section>
@@ -387,9 +387,9 @@ export function aboutView(root) {
   root.innerHTML = `
   <article class="article">
     <header class="article-head"><div class="kicker">Colophon</div><h1>About this journal</h1>
-    <p class="dek">A single home for a lifetime of learning and teaching.</p></header>
+    <p class="dek">A single home for a lifetime of learning and giving.</p></header>
     <div class="prose">
-      <p>This is the source of truth for my journey: the things I have learned, the things I have taught, and the artifacts collected along the way. My motto: Learn, Give, Love, Laugh.</p>
+      <p>This is the source of truth for my journey: the things I have learned, the things I have given, and the artifacts collected along the way. My motto: Learn, Give, Love, Laugh.</p>
       <p>Some pages are open to everyone. Some are <strong>protected</strong> and readable by people I give an access code to. Some are <strong>private</strong> and kept only for me. Sealed pages stay encrypted until the right key opens them, both here and in the repository behind the site.</p>
       <p>If you have an access code, use the <em>Unlock</em> button at the top of the page. If you'd like to say hello, please sign the <a href="#/guestbook">guestbook</a>.</p>
     </div>
