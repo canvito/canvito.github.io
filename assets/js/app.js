@@ -29,6 +29,8 @@ function renderChrome() {
     document.title = S.cfg.title;
   }
   if (S.cfg.tagline) $('#brand-tag').textContent = S.cfg.tagline;
+  $('#brand-byline').textContent = S.cfg.byline ?? '';
+  $('#brand-byline').hidden = !S.cfg.byline;
   const acc = $('#access');
   if (S.mode === 'owner') acc.innerHTML = `<span class="seal private">${LOCK_SVG}</span><span>Author</span><button type="button" data-lock>Lock</button>`;
   else if (S.mode === 'guest')
@@ -143,7 +145,7 @@ async function route() {
   $$('.nav a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === (section === 'p' ? 'journal' : section)));
   if (section === 'journal' && !params.get('q') && document.activeElement !== $('#search')) $('#search').value = '';
   if (section === 'journal' && params.get('q') && document.activeElement !== $('#search')) $('#search').value = params.get('q');
-  document.title = S.cfg.title || 'Canvito Life Journey';
+  document.title = S.cfg.title || 'Little by Little';
   renderChrome();
 
   const view = document.createElement('div');

@@ -1,4 +1,4 @@
-/* Canvito Life Journey — editorial journal theme */
+/* Little by Little — editorial journal theme */
 :root {
   --paper: #f3eee3;
   --paper-2: #ebe4d4;
@@ -86,6 +86,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   display: block; font-family: var(--display); font-weight: 800; letter-spacing: -.02em; line-height: .95;
   font-size: clamp(2.4rem, 7vw, 5.4rem); font-variation-settings: 'opsz' 144, 'SOFT' 30;
 }
+.brand-byline { display: block; margin-top: .2rem; font-family: var(--hand); font-size: 1.6rem; color: var(--accent); line-height: 1; }
 .brand-tag { display: block; margin-top: .55rem; font-style: italic; color: var(--ink-2); font-size: 1.05rem; }
 .nav {
   display: flex; flex-wrap: wrap; align-items: center; gap: .2rem 1.4rem; justify-content: center;

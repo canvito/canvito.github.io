@@ -321,7 +321,7 @@ export async function postView(root, id, { asPage = false } = {}) {
         ? `<figure class="article-cover"><img src="${esc(safeUrl(post.cover))}" alt="" referrerpolicy="no-referrer"></figure>`
         : ''
     : '';
-  document.title = `${post.title} — ${S.cfg.title || 'Canvito Life Journey'}`;
+  document.title = `${post.title} — ${S.cfg.title || 'Little by Little'}`;
   root.innerHTML = `
   <article class="article">
     <header class="article-head">
