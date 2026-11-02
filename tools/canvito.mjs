@@ -15,7 +15,7 @@ import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_DIR = path.join(os.homedir(), '.canvito');
 
-const HELP = `Little x Little (Can's journal) CLI
+const HELP = `Little × Little (Can's journal) CLI
 
 Setup
   init                         Create keyring + encrypted indexes in the vault repo (prompts for passphrase)
@@ -577,7 +577,7 @@ const commands = {
     const out = path.resolve(typeof flags.out === 'string' ? flags.out : `visitors-report-${new Date().toISOString().slice(0, 10)}.html`);
     const cfg = JSON.parse(readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
     await fs.mkdir(path.dirname(out), { recursive: true });
-    await fs.writeFile(out, standaloneReport(agg, { titleOf, siteTitle: cfg.title || 'Little x Little', rangeLabel }), 'utf8');
+    await fs.writeFile(out, standaloneReport(agg, { titleOf, siteTitle: cfg.title || 'Little × Little', rangeLabel }), 'utf8');
     console.log(`✔ Report written: ${out}`);
     console.log(`  ${agg.range.visitors} visitors · ${agg.range.views} page views (${rangeLabel.toLowerCase()})`);
     if (flags.open) spawn(process.platform === 'win32' ? 'cmd' : 'open', process.platform === 'win32' ? ['/c', 'start', '', out] : [out], { detached: true, stdio: 'ignore' }).unref();

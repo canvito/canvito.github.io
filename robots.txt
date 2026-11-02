@@ -1,4 +1,4 @@
-# Little x Little (canvito.github.io): no AI training or bulk scraping.
+# Little × Little (canvito.github.io): no AI training or bulk scraping.
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot

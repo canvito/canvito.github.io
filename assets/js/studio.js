@@ -483,7 +483,7 @@ async function visitorsView(root) {
   });
   $('#vr-dl', root).addEventListener('click', () => {
     const label = RANGES.find(([k]) => k === $('#vr-range', root).value)?.[1] || '';
-    const html = standaloneReport(agg(), { titleOf, siteTitle: S.cfg.title || 'Little x Little', rangeLabel: label });
+    const html = standaloneReport(agg(), { titleOf, siteTitle: S.cfg.title || 'Little × Little', rangeLabel: label });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     a.download = `visitors-${new Date().toISOString().slice(0, 10)}.html`;

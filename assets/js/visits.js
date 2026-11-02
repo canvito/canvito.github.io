@@ -189,7 +189,7 @@ export const REPORT_CSS = `
 .vr-foot { color: var(--vr-mute); font-size: .8rem; margin-top: 1.2rem; }
 `;
 
-export function standaloneReport(agg, { titleOf, siteTitle = 'Little x Little', rangeLabel = '' } = {}) {
+export function standaloneReport(agg, { titleOf, siteTitle = 'Little × Little', rangeLabel = '' } = {}) {
   const generated = new Date(agg.now).toLocaleString();
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

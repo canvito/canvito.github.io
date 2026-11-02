@@ -1,4 +1,4 @@
-/* Little x Little — editorial journal theme */
+/* Little × Little — editorial journal theme */
 :root {
   --paper: #f3eee3;
   --paper-2: #ebe4d4;
@@ -87,6 +87,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-size: clamp(2.4rem, 7vw, 5.4rem); font-variation-settings: 'opsz' 144, 'SOFT' 30;
   padding-bottom: .2em; /* room for descenders (the "y") above the byline */
 }
+.brand-x { display: inline-block; font-weight: 400; font-size: .7em; color: var(--accent); vertical-align: .1em; margin: 0 .06em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .brand-byline { display: block; margin-top: .1rem; font-family: var(--hand); font-size: 1.6rem; color: var(--accent); line-height: 1; }
 .nav {
   display: flex; flex-wrap: wrap; align-items: center; gap: .2rem 1.4rem; justify-content: center;

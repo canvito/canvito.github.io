@@ -19,13 +19,16 @@ $('#theme-toggle').addEventListener('click', () => {
 });
 
 // ---------- masthead ----------
+// "×" in the title is a symbol read as "by" (as in 3 × 4).
+const brandTitle = (t) => esc(t).replaceAll('×', '<span class="brand-x" aria-hidden="true">×</span><span class="sr-only">by</span>');
+
 function renderChrome() {
   const entries = S.metas.filter((m) => m.kind !== 'page');
   const first = entries.length ? +entries[entries.length - 1].date.slice(0, 4) : new Date().getFullYear();
   const vol = new Date().getFullYear() - first + 1;
   $('#dateline').textContent = `${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Vol. ${roman(vol)} · No. ${entries.length}`;
   if (S.cfg.title) {
-    $('#brand-title').textContent = S.cfg.title;
+    $('#brand-title').innerHTML = brandTitle(S.cfg.title);
     document.title = S.cfg.title;
   }
   $('#brand-byline').textContent = S.cfg.byline ?? '';
@@ -145,7 +148,7 @@ async function route() {
   if (section === 'journal' && !params.get('q') && document.activeElement !== $('#search')) $('#search').value = '';
   if (section !== 'journal' && document.activeElement !== $('#search')) $('#search').value = '';
   if (section === 'journal' && params.get('q') && document.activeElement !== $('#search')) $('#search').value = params.get('q');
-  document.title = S.cfg.title || 'Little x Little';
+  document.title = S.cfg.title || 'Little × Little';
   renderChrome();
 
   const view = document.createElement('div');
