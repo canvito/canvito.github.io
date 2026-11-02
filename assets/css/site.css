@@ -85,8 +85,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand-title {
   display: block; font-family: var(--display); font-weight: 800; letter-spacing: -.02em; line-height: .95;
   font-size: clamp(2.4rem, 7vw, 5.4rem); font-variation-settings: 'opsz' 144, 'SOFT' 30;
+  padding-bottom: .2em; /* room for descenders (the "y") above the byline */
 }
-.brand-byline { display: block; margin-top: .2rem; font-family: var(--hand); font-size: 1.6rem; color: var(--accent); line-height: 1; }
+.brand-byline { display: block; margin-top: .1rem; font-family: var(--hand); font-size: 1.6rem; color: var(--accent); line-height: 1; }
 .nav {
   display: flex; flex-wrap: wrap; align-items: center; gap: .2rem 1.4rem; justify-content: center;
   border-top: 3px double var(--ink); border-bottom: 1px solid var(--ink); padding: .5rem 0;
