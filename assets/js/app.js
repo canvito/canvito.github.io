@@ -145,7 +145,7 @@ async function route() {
   if (section === 'journal' && !params.get('q') && document.activeElement !== $('#search')) $('#search').value = '';
   if (section !== 'journal' && document.activeElement !== $('#search')) $('#search').value = '';
   if (section === 'journal' && params.get('q') && document.activeElement !== $('#search')) $('#search').value = params.get('q');
-  document.title = S.cfg.title || 'Little by Little';
+  document.title = S.cfg.title || 'Little x Little';
   renderChrome();
 
   const view = document.createElement('div');
