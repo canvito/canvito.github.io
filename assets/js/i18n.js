@@ -43,6 +43,7 @@ const VI = {
   Search: 'Tìm kiếm',
   'Opening the journal…': 'Đang mở nhật ký…',
   '🚧 Under construction — more chapters coming soon.': '🚧 Đang xây dựng — sắp có thêm nhiều chương mới.',
+  'Encrypted at rest · Hosted on GitHub Pages': 'Dữ liệu được mã hóa · Chạy trên GitHub Pages',
   'Toggle the lamp': 'Bật/tắt đèn',
   'Toggle dark mode': 'Chuyển chế độ tối',
   Language: 'Ngôn ngữ',
