@@ -8,7 +8,7 @@ workers_dev = true
 VAULT_REPO = "canvito/canvito-vault"
 VAULT_BRANCH = "main"
 # Browser origins allowed to call this API (comma separated). Add http://localhost:8080 only while developing.
-ALLOWED_ORIGINS = "https://canvito.github.io"
+ALLOWED_ORIGINS = "https://canvo.com"
 # Guest session length (hours) for one-time and time-bound codes. Permanent codes get 30 days per sign-in.
 SESSION_HOURS = "12"
 # "1" publishes public guestbook entries immediately; "0" queues them for your approval in Studio.
