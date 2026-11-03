@@ -156,9 +156,9 @@ const VI = {
   'This site counts visits anonymously.': 'Trang này đếm lượt truy cập một cách ẩn danh.',
   Colophon: 'Lời ngỏ',
   'About this journal': 'Về cuốn nhật ký này',
-  'A single home for a lifetime of learning and giving.': 'Một mái nhà cho cả một đời học hỏi và cho đi.',
+  'A single home for a lifetime of learning and giving.': 'Một mái nhà cho cả một đời học hỏi và cho.',
   'This is the source of truth for my journey: the things I have learned, the things I have given, and the artifacts collected along the way. My motto: Learn, Give, Love, Laugh.':
-    'Đây là nơi lưu giữ chân thực hành trình của tôi: những điều tôi đã học, những điều tôi đã cho đi, và những kỷ vật góp nhặt trên đường. Phương châm của tôi: Học, Cho, Yêu, Cười.',
+    'Đây là nơi lưu giữ chân thực hành trình của tôi: những điều tôi đã học, những điều tôi đã cho, và những kỷ vật góp nhặt trên đường. Phương châm của tôi: Học, Cho, Yêu, Cười.',
   'Some pages are open to everyone. Some are <strong>protected</strong> and readable by people I give an access code to. Some are <strong>private</strong> and kept only for me. Sealed pages stay encrypted until the right key opens them, both here and in the repository behind the site.':
     'Có những trang mở cho tất cả mọi người. Có những trang <strong>được bảo vệ</strong>, chỉ những ai tôi trao mã truy cập mới đọc được. Có những trang <strong>riêng tư</strong>, chỉ dành cho riêng tôi. Các trang niêm phong luôn được mã hóa cho đến khi được mở bằng đúng chìa khóa, cả ở đây lẫn trong kho lưu trữ phía sau trang.',
   'If you have an access code, use the <em>Unlock</em> button at the top of the page. If you\'d like to say hello, please sign the <a href="#/guestbook">guestbook</a>.':
