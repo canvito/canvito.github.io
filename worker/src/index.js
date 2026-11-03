@@ -1,6 +1,6 @@
 // Little × Little API (Can's journal) — Cloudflare Worker.
-// Responsibilities: access-code redemption (one-time / time-bound / permanent), guest sessions,
-// server-side decryption of PROTECTED content (key never leaves the worker), anonymous guestbook,
+// Responsibilities: access-code redemption (one-time / time-bound / permanent; codes in D1), guest sessions,
+// server-side decryption of PROTECTED content (key never leaves the worker), anonymous guestbook (KV),
 // rate limiting + Turnstile, a private visitor counter (D1), and owner admin endpoints.
 import {
   b64decode, importAesKey, openJSON, decryptBytes, sha256Hex, signToken, verifyToken,
@@ -123,9 +123,29 @@ async function fetchContent(env, path, as = 'json') {
 
 const stripKeys = (assets) => (assets || []).map(({ key, ...a }) => a);
 
+// ---------- access codes (D1 table `codes`; only a hash of each code is stored) ----------
+// Every change is one atomic SQL statement: a redemption can't undo a revocation, and a one-time code can't be used twice.
+function codesDb(env) {
+  if (!env.DB) throw new HttpError(503, 'Access codes need the D1 database (binding DB)');
+  return env.DB;
+}
+
+const codeRecord = (r) =>
+  r && {
+    id: r.id,
+    label: r.label,
+    type: r.type,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null,
+    maxUses: r.max_uses,
+    uses: r.uses,
+    lastUsedAt: r.last_used_at || null,
+    revoked: !!r.revoked_at,
+    revokedAt: r.revoked_at || null,
+  };
+
 async function getCodeRecord(env, hash) {
-  const { metadata } = await env.KV.getWithMetadata(`code:${hash}`);
-  return metadata || null;
+  return codeRecord(await codesDb(env).prepare('SELECT * FROM codes WHERE hash = ?').bind(hash).first());
 }
 
 function codeStatus(rec, now = Date.now()) {
@@ -152,12 +172,17 @@ async function redeem(req, env) {
   const norm = normalizeCode(body.code);
   if (norm.length < 8 || norm.length > 64 || !/^[A-Z0-9]+$/.test(norm)) throw new HttpError(401, 'Invalid or expired code');
   const hash = await hashCode(norm);
-  const rec = await getCodeRecord(env, hash);
-  if (!rec || codeStatus(rec) !== 'active') throw new HttpError(401, 'Invalid or expired code');
   const now = Date.now();
-  rec.uses = (rec.uses || 0) + 1;
-  rec.lastUsedAt = new Date(now).toISOString();
-  await env.KV.put(`code:${hash}`, '1', { metadata: rec });
+  const row = await codesDb(env)
+    .prepare(
+      `UPDATE codes SET uses = uses + 1, last_used_at = ?
+       WHERE hash = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?) AND (max_uses = 0 OR uses < max_uses)
+       RETURNING *`,
+    )
+    .bind(new Date(now).toISOString(), hash, now)
+    .first();
+  if (!row) throw new HttpError(401, 'Invalid or expired code');
+  const rec = codeRecord(row);
   const hours = Number(env.SESSION_HOURS || 12);
   let exp = rec.type === 'permanent' ? now + 30 * DAY : now + hours * 3_600_000;
   if (rec.expiresAt) exp = Math.min(exp, Date.parse(rec.expiresAt));
@@ -252,10 +277,8 @@ async function listAll(env, prefix) {
 }
 
 async function adminListCodes(env) {
-  const keys = await listAll(env, 'code:');
-  const codes = keys.filter((k) => k.metadata).map((k) => ({ ...k.metadata, status: codeStatus(k.metadata) }));
-  codes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return json({ codes });
+  const { results } = await codesDb(env).prepare('SELECT * FROM codes ORDER BY created_at DESC').all();
+  return json({ codes: results.map(codeRecord).map((c) => ({ ...c, status: codeStatus(c) })) });
 }
 
 async function adminCreateCode(req, env) {
@@ -271,7 +294,6 @@ async function adminCreateCode(req, env) {
   const norm = normalizeCode(code);
   if (norm.length < 10 || norm.length > 64 || !/^[A-Z0-9]+$/.test(norm)) throw new HttpError(400, 'Custom codes need 10+ letters/digits');
   const hash = await hashCode(norm);
-  if (await getCodeRecord(env, hash)) throw new HttpError(409, 'That code already exists');
   const maxUses = type === 'once' ? 1 : Math.max(0, parseInt(b.maxUses || 0, 10) || 0);
   const rec = {
     id: hash.slice(0, 12),
@@ -283,19 +305,28 @@ async function adminCreateCode(req, env) {
     uses: 0,
     revoked: false,
   };
-  await env.KV.put(`code:${hash}`, '1', { metadata: rec });
+  const r = await codesDb(env)
+    .prepare('INSERT OR IGNORE INTO codes (hash, id, label, type, created_at, expires_at, max_uses, uses) VALUES (?, ?, ?, ?, ?, ?, ?, 0)')
+    .bind(hash, rec.id, rec.label, type, rec.createdAt, expiresAt ? expiresAt.getTime() : null, maxUses)
+    .run();
+  if (!r.meta?.changes) throw new HttpError(409, 'That code already exists');
   return json({ code, ...rec, status: 'active' }, 201);
 }
 
 async function adminRevokeCode(env, id, purge) {
   if (!/^[a-f0-9]{12}$/.test(id)) throw new HttpError(400, 'Bad id');
-  const keys = await listAll(env, `code:${id}`);
-  if (!keys.length) throw new HttpError(404, 'Not found');
-  for (const k of keys) {
-    if (purge) await env.KV.delete(k.name);
-    else await env.KV.put(k.name, '1', { metadata: { ...k.metadata, revoked: true, revokedAt: new Date().toISOString() } });
-  }
+  const db = codesDb(env);
+  const r = purge
+    ? await db.prepare('DELETE FROM codes WHERE id = ?').bind(id).run()
+    : await db.prepare('UPDATE codes SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?').bind(new Date().toISOString(), id).run();
+  if (!r.meta?.changes) throw new HttpError(404, 'Not found');
   return json({ ok: true });
+}
+
+// Revokes every active code. Guest sessions are checked against their code on each request, so everyone is signed out.
+async function adminRevokeAll(env) {
+  const r = await codesDb(env).prepare('UPDATE codes SET revoked_at = ? WHERE revoked_at IS NULL').bind(new Date().toISOString()).run();
+  return json({ ok: true, revoked: r.meta?.changes || 0 });
 }
 
 async function adminGuestbook(env) {
@@ -332,7 +363,7 @@ async function route(req, env) {
   const p = url.pathname.replace(/\/+$/, '');
   const m = req.method;
   let r;
-  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE), visits: !!env.DB });
+  if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE), codes: !!env.DB, visits: !!env.DB && env.VISITOR_COUNTER !== '0' });
   if (p === '/api/redeem' && m === 'POST') return redeem(req, env);
   if (p === '/api/session' && m === 'GET') {
     const s = await requireGuest(req, env);
@@ -358,6 +389,7 @@ async function route(req, env) {
     await requireAdmin(req, env);
     if (p === '/api/admin/codes' && m === 'GET') return adminListCodes(env);
     if (p === '/api/admin/codes' && m === 'POST') return adminCreateCode(req, env);
+    if (p === '/api/admin/codes/revoke-all' && m === 'POST') return adminRevokeAll(env);
     if ((r = p.match(/^\/api\/admin\/codes\/([a-f0-9]+)$/)) && m === 'DELETE') return adminRevokeCode(env, r[1], url.searchParams.get('purge') === '1');
     if (p === '/api/admin/visits' && m === 'GET') return listVisits(url, env, json);
     if (p === '/api/admin/guestbook' && m === 'GET') return adminGuestbook(env);

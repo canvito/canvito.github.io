@@ -40,7 +40,7 @@ function refHost(ref, ownOrigins) {
 }
 
 export async function recordHit(req, env, allowedOrigins) {
-  if (!env.DB) return noContent();
+  if (!env.DB || env.VISITOR_COUNTER === '0') return noContent();
   const origin = req.headers.get('Origin');
   const ua = req.headers.get('User-Agent') || '';
   // Only real browsers on the site count: they always send an allowed Origin.

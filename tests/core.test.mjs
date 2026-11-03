@@ -292,7 +292,7 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   t.after(() => (globalThis.fetch = realFetch));
 
   const env = {
-    KV: new MemKV(), SESSION_SECRET: 'sess', ADMIN_TOKEN: 'admin-token', PROTECTED_KEY: raw.protected,
+    KV: new MemKV(), DB: new LocalD1(), SESSION_SECRET: 'sess', ADMIN_TOKEN: 'admin-token', PROTECTED_KEY: raw.protected,
     VAULT_REPO: 'canvito/canvito-vault', VAULT_TOKEN: 'vault-read-token', ALLOWED_ORIGINS: 'https://canvito.github.io', ALLOW_NO_TURNSTILE: '1', SESSION_HOURS: '12',
   };
   let ip = 0;
@@ -338,8 +338,7 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   const timed = (await call('POST', '/api/admin/codes', { body: { type: 'timed', label: 'Class', hours: 1 }, token: 'admin-token' })).data;
   const ttok = (await call('POST', '/api/redeem', { body: { code: timed.code } })).data;
   assert.ok(ttok.exp <= Date.parse(timed.expiresAt));
-  const key = [...env.KV.m.keys()].find((k) => k.startsWith(`code:${timed.id}`));
-  env.KV.m.get(key).metadata.expiresAt = new Date(Date.now() - 1000).toISOString();
+  env.DB.db.prepare('UPDATE codes SET expires_at = ? WHERE id = ?').run(Date.now() - 1000, timed.id);
   assert.equal((await call('GET', '/api/vault/index', { token: ttok.token })).status, 401, 'time-bound access ends at expiry');
   assert.equal((await call('POST', '/api/redeem', { body: { code: timed.code } })).status, 401);
 
@@ -360,6 +359,19 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   assert.equal((await call('POST', `/api/admin/guestbook/${pub.id}/approve`, { token: 'admin-token' })).status, 200);
   const list = (await call('GET', '/api/guestbook')).data.entries;
   assert.deepEqual(list.map((e) => e.name), ['A']);
+
+  // one-time codes hold under simultaneous redemption; revoke-all signs everyone out
+  const race = (await call('POST', '/api/admin/codes', { body: { type: 'once', label: 'Race' }, token: 'admin-token' })).data;
+  const results = await Promise.all([1, 2, 3].map(() => call('POST', '/api/redeem', { body: { code: race.code } })));
+  assert.deepEqual(results.map((x) => x.status).sort(), [200, 401, 401], 'a one-time code works exactly once');
+  const p2 = (await call('POST', '/api/admin/codes', { body: { type: 'permanent', label: 'P2' }, token: 'admin-token' })).data;
+  const p2tok = (await call('POST', '/api/redeem', { body: { code: p2.code } })).data.token;
+  assert.equal((await call('GET', '/api/session', { token: p2tok })).status, 200);
+  const all = (await call('POST', '/api/admin/codes/revoke-all', { token: 'admin-token' })).data;
+  assert.ok(all.revoked >= 2);
+  assert.equal((await call('GET', '/api/session', { token: p2tok })).status, 401, 'revoke-all signs guests out');
+  assert.equal((await call('POST', '/api/redeem', { body: { code: p2.code } })).status, 401, 'revoked codes stay revoked');
+  assert.equal((await call('POST', '/api/admin/codes', { body: { type: 'permanent', code: p2.code }, token: 'admin-token' })).status, 409, 'codes are unique');
 });
 
 // ---------- visitor counter ----------

@@ -12,6 +12,7 @@ import { createKeyring, openKeyring, importAesKey, newRawKey, sealJSON, b64urlEn
 import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf, resolveTier, disclosureWarning, normalizePost } from '../assets/js/vault.js';
 import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
 import { parseFrontMatter, toFrontMatter } from './frontmatter.mjs';
+import { readKeyCache, writeKeyCache } from './keycache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KEY_DIR = path.join(os.homedir(), '.canvito');
@@ -20,7 +21,7 @@ const HELP = `Little × Little (Can's journal) CLI
 
 Setup
   init                         Create keyring + encrypted indexes in the vault repo (prompts for passphrase)
-  login / logout               Cache / forget decrypted keys on this machine (~/.canvito)
+  login / logout               Cache / forget keys on this machine (~/.canvito; encrypted with your Windows login)
   passwd                       Change the owner passphrase
   worker-secrets [--push] [--turnstile-secret S] [--vault-token T]
                                Print (or push via wrangler) the Cloudflare Worker secrets
@@ -45,6 +46,7 @@ Access codes (needs workerUrl in config.json)
   codes list
   codes new [--type once|timed|permanent] [--label L] [--hours N | --expires ISO] [--uses N] [--code CUSTOM]
   codes revoke <id> [--purge]
+  codes revoke-all             Revoke every code (signs every guest out)
 
 Guestbook
   guestbook list | approve <id> | delete <id>   (visitor text is printed quoted: it is untrusted)
@@ -205,7 +207,7 @@ async function unlockSecrets() {
 
 async function loadSecrets({ optional = false } = {}) {
   const cache = await keyCacheFile();
-  if (existsSync(cache)) return readJsonFile(cache);
+  if (existsSync(cache)) return readKeyCache(cache);
   if (process.env.CANVITO_PASSPHRASE) return unlockSecrets();
   if (!existsSync(keyringPath())) {
     if (optional) return {};
@@ -381,7 +383,7 @@ const commands = {
     const s = await unlockSecrets();
     const f = await keyCacheFile();
     await fs.mkdir(path.dirname(f), { recursive: true });
-    await fs.writeFile(f, JSON.stringify(s), { mode: 0o600 });
+    await writeKeyCache(f, s);
     console.log(`✔ Keys cached at ${f}. Run "logout" to remove them.`);
   },
 
@@ -421,7 +423,7 @@ const commands = {
     s.sessionSecret = b64urlEncode(randomBytes(32));
     await pushSecrets({ ADMIN_TOKEN: s.adminToken, SESSION_SECRET: s.sessionSecret });
     await fs.writeFile(keyringPath(), JSON.stringify(await createKeyring(pass, s), null, 2));
-    if (existsSync(await keyCacheFile())) await fs.writeFile(await keyCacheFile(), JSON.stringify(s), { mode: 0o600 });
+    if (existsSync(await keyCacheFile())) await writeKeyCache(await keyCacheFile(), s);
     console.log('✔ Admin token and session secret rotated. Every guest is signed out and must unlock again with their code.');
     console.log('Now run: node tools/canvito.mjs publish   then Lock and unlock again in any open browser tab.');
   },
@@ -434,7 +436,7 @@ const commands = {
     const vault = new Vault(new SplitNodeIO(), { protected: await importAesKey(s.protected), private: await importAesKey(s.private) });
     s[pos[0]] = await vault.rekey(pos[0]);
     await fs.writeFile(keyringPath(), JSON.stringify(await createKeyring(pass, s), null, 2));
-    if (existsSync(await keyCacheFile())) await fs.writeFile(await keyCacheFile(), JSON.stringify(s), { mode: 0o600 });
+    if (existsSync(await keyCacheFile())) await writeKeyCache(await keyCacheFile(), s);
     console.log(`✔ Re-encrypted ${pos[0]} tier with a new key.`);
     if (pos[0] === 'protected') console.log('Now run: node tools/canvito.mjs worker-secrets --push   and publish (git push).');
   },
@@ -552,8 +554,11 @@ const commands = {
     } else if (sub === 'revoke') {
       if (!pos[1]) die('Usage: codes revoke <id>');
       await workerApi(s, 'DELETE', `/api/admin/codes/${pos[1]}${flags.purge ? '?purge=1' : ''}`);
-      console.log('✔ Revoked. Active sessions using it stop working immediately.');
-    } else die('Usage: codes list|new|revoke');
+      console.log(flags.purge ? '✔ Removed. Anyone using it is signed out immediately.' : '✔ Revoked. Anyone using it is signed out immediately.');
+    } else if (sub === 'revoke-all') {
+      const r = await workerApi(s, 'POST', '/api/admin/codes/revoke-all');
+      console.log(`✔ Revoked ${r.revoked} active code(s). Every guest is signed out; issue new codes to people who should keep access.`);
+    } else die('Usage: codes list|new|revoke|revoke-all');
   },
 
   async guestbook({ pos }) {

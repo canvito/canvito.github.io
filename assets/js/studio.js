@@ -307,7 +307,7 @@ async function codesView(root) {
       <div class="err" id="code-err"></div>
       <button class="btn" type="submit">Generate code</button>
     </form>
-    <div><h3 style="margin-top:0">Issued codes</h3><div id="codes"><div class="loading"><span class="quill"></span>Loading…</div></div></div>
+    <div><h3 style="margin-top:0;display:flex;justify-content:space-between;align-items:baseline">Issued codes <button class="linkish" type="button" id="revoke-all">revoke all</button></h3><div id="codes"><div class="loading"><span class="quill"></span>Loading…</div></div></div>
   </div>`;
   const list = $('#codes', root);
   const load = async () => {
@@ -328,6 +328,16 @@ async function codesView(root) {
     }
   };
   load();
+  $('#revoke-all', root).addEventListener('click', async () => {
+    if (!(await confirmDialog('Revoke EVERY access code? All guests are signed out immediately and their codes stop working.', 'Revoke all'))) return;
+    try {
+      const r = await api('/api/admin/codes/revoke-all', { method: 'POST', auth: 'admin' });
+      toast(`Revoked ${r.revoked} code${r.revoked === 1 ? '' : 's'}.`);
+      load();
+    } catch (ex) {
+      toast(ex.message);
+    }
+  });
   list.addEventListener('click', async (e) => {
     const r = e.target.closest('[data-revoke],[data-purge]');
     if (!r) return;
@@ -528,7 +538,7 @@ async function settingsView(root) {
     </div>
   </div>`;
   api('/api/health')
-    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · Vault token ${h.vault ? 'set' : 'MISSING'} · Visitor counter ${h.visits ? 'on' : 'OFF'} · ${S.cfg.workerUrl}`))
+    .then((h) => ($('#health', root).textContent = `Online · Turnstile ${h.turnstile ? 'on' : 'OFF'} · Protected key ${h.protected ? 'set' : 'MISSING'} · Vault token ${h.vault ? 'set' : 'MISSING'} · Access codes ${h.codes ? 'on' : 'OFF (no database)'} · Visitor counter ${h.visits ? 'on' : 'OFF'} · ${S.cfg.workerUrl}`))
     .catch((e) => ($('#health', root).textContent = e.message));
   $('#lock', root).onclick = () => signOut().then(() => (location.hash = '#/'));
   $('#forget', root).addEventListener('click', async () => {

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { sha256Hex } from '../assets/js/crypto.js';
 import worker from '../worker/src/index.js';
 import { LocalD1 } from './d1-local.mjs';
+import { readKeyCache } from './keycache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (k, d) => {
@@ -26,7 +27,7 @@ if (!existsSync(cache)) {
   console.error('No cached keys. Run: node tools/canvito.mjs login');
   process.exit(1);
 }
-const secrets = JSON.parse(await fs.readFile(cache, 'utf8'));
+const secrets = await readKeyCache(cache);
 const cfg = JSON.parse(await fs.readFile(path.join(ROOT, 'config.json'), 'utf8'));
 const VAULT = path.resolve(process.env.CANVITO_VAULT || path.join(ROOT, '..', cfg.vault?.name || 'canvito-vault'));
 if (!existsSync(VAULT)) {

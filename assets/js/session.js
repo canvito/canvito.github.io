@@ -211,6 +211,9 @@ export async function unlock(secret, turnstileToken) {
       emit();
       return { mode: 'owner' };
     }
+    // On the author's own device, a failed unlock is almost certainly a mistyped passphrase: only input shaped like a
+    // generated guest code (XXXX-XXXX-XXXX-XXXX) is ever sent to the Worker from here.
+    if (!/^[A-Z0-9]{4}(-?[A-Z0-9]{4}){3}$/i.test(secret)) throw new Error('Wrong passphrase.');
   }
   // Access codes never contain spaces; anything that does may be a passphrase and must never be sent to the Worker.
   if (/\s/.test(secret)) throw new Error('That code was not recognized. (Author on a new device? Use “Author sign-in on a new device” below.)');
