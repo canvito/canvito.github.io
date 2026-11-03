@@ -158,7 +158,6 @@ const VI = {
   'See all →': 'Xem tất cả →',
   // about
   'This site counts visits anonymously.': 'Trang này đếm lượt truy cập một cách ẩn danh.',
-  Colophon: 'Lời ngỏ',
   'About this journal': 'Về cuốn nhật ký này',
   'A single home for a lifetime of learning and giving.': 'Một mái nhà cho cả một đời học hỏi và cho.',
   'This is the source of truth for my journey: the things I have learned, the things I have given, and the artifacts collected along the way. My motto: Learn, Give, Love, Laugh.':

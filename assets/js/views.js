@@ -482,7 +482,7 @@ export async function aboutView(root) {
   }
   root.innerHTML = `
   <article class="article">
-    <header class="article-head"><div class="kicker">${esc(t('Colophon'))}</div><h1>${esc(t('About this journal'))}</h1>
+    <header class="article-head"><h1>${esc(t('About this journal'))}</h1>
     <p class="dek">${esc(t('A single home for a lifetime of learning and giving.'))}</p></header>
     <div class="prose">
       <p>${esc(t('This is the source of truth for my journey: the things I have learned, the things I have given, and the artifacts collected along the way. My motto: Learn, Give, Love, Laugh.'))}</p>
