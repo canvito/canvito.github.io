@@ -50,6 +50,46 @@ $('#access').addEventListener('click', async (e) => {
   }
 });
 
+// ---------- author auto-lock ----------
+// After ownerIdleMinutes (config, default 30) without input, the author gets 60 s to say "keep working", then the journal locks.
+let lastActive = Date.now();
+let idlePrompt = null;
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, () => (lastActive = Date.now()), { capture: true, passive: true });
+async function lockForInactivity() {
+  await signOut();
+  toast('Locked after inactivity. Unlock again with your passphrase.', 6000);
+  if (location.hash.startsWith('#/studio')) location.hash = '#/';
+}
+function checkIdle() {
+  if (!isOwner() || idlePrompt || Date.now() - lastActive < (Number(S.cfg.ownerIdleMinutes) || 30) * 60_000) return;
+  let left = 60;
+  let tick;
+  idlePrompt = modal(
+    `<h2>Still there?</h2><p>The journal locks in <b id="idle-left">${left}</b> seconds to keep your entries safe.</p><div class="btn-row"><button class="btn" type="button" data-stay>Keep working</button><button class="btn ghost" type="button" data-lock-now>Lock now</button></div>`,
+    {
+      onClose: () => {
+        clearInterval(tick);
+        idlePrompt = null;
+        lastActive = Date.now();
+      },
+    },
+  );
+  const p = idlePrompt;
+  p.el.querySelector('[data-stay]').onclick = () => p.close();
+  p.el.querySelector('[data-lock-now]').onclick = () => (p.close(), lockForInactivity());
+  tick = setInterval(() => {
+    left--;
+    const el = p.el.querySelector('#idle-left');
+    if (el) el.textContent = left;
+    if (left <= 0) {
+      p.close();
+      lockForInactivity();
+    }
+  }, 1000);
+}
+setInterval(checkIdle, 15_000);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && checkIdle());
+
 async function openUnlock() {
   const m = modal(`
     <div class="seal seal-big">${LOCK_SVG}</div>
@@ -71,7 +111,7 @@ async function openUnlock() {
       </form>
     </details>`);
   const noTs = { token: () => '', reset() {} };
-  const ts = S.cfg.workerUrl ? await turnstileWidget($('#unlock-ts', m.el), S.cfg.turnstileSiteKey).catch(() => noTs) : noTs;
+  const ts = S.cfg.workerUrl ? await turnstileWidget($('#unlock-ts', m.el), S.cfg.turnstileSiteKey, 'redeem').catch(() => noTs) : noTs;
   if (!S.cfg.workerUrl || !S.cfg.turnstileSiteKey) $('#unlock-ts', m.el).remove();
 
   const busy = async (form, errEl, label, fn) => {

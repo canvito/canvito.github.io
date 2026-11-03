@@ -11,3 +11,8 @@ Thumbs.db
 data/vault/
 media/vault/
 data/keyring.json
+
+# Plaintext drafts, exports and reports never belong here (publish only commits data/public + media/public)
+notes/
+drafts/
+visitors-report*.html

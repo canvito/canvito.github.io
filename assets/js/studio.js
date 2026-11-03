@@ -1,6 +1,6 @@
 // Owner-only Studio: write/edit/delete entries (committed straight to GitHub), access codes, guestbook moderation, settings.
 import { renderMarkdown, mediaRefs } from './markdown.js';
-import { KINDS, TIERS, DATE_RE } from './vault.js';
+import { KINDS, TIERS, DATE_RE, disclosureWarning } from './vault.js';
 import { newRawKey } from './crypto.js';
 import { S, api, getPost, ownerIO, ownerVault, refreshAfterWrite, authorSignIn, forgetDevice, signOut } from './session.js';
 import { hydrateMedia } from './views.js';
@@ -92,7 +92,7 @@ async function editorView(root, id) {
   const today = new Date();
   const draft = post
     ? structuredClone(post)
-    : { title: '', date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, kind: 'learn', tier: 'public', tags: [], summary: '', cover: '', location: '', body: '', assets: [] };
+    : { title: '', date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, kind: 'learn', tier: 'private', tags: [], summary: '', cover: '', location: '', body: '', assets: [] };
   const pending = new Map();
 
   root.innerHTML = `${tabs(id ? '' : 'new')}
@@ -242,6 +242,8 @@ async function editorView(root, id) {
     const btn = form.querySelector('button[type=submit]');
     err.textContent = '';
     if (!DATE_RE.test(F.date.value.trim())) return (err.textContent = 'Date must look like 2014, 2014-09, 2014-09-21 or 2014-09-21T18:30');
+    const warning = disclosureWarning(post?.tier, tierNow());
+    if (warning && !(await confirmDialog(`${warning} Continue?`, `Make it ${tierNow()}`))) return;
     btn.disabled = true;
     try {
       const io = writableIO();
@@ -268,7 +270,7 @@ async function editorView(root, id) {
         location: F.location.value,
         body,
         assets: draft.assets,
-      });
+      }, { allowDisclosure: true });
       status.textContent = 'Committing…';
       await io.commit(commitMsg(post ? 'update' : 'add', saved));
       pending.forEach((p) => URL.revokeObjectURL(p.url));
@@ -521,7 +523,7 @@ async function settingsView(root) {
       <h3>Access service</h3>
       <p class="mono small" id="health">Checking…</p>
       <h3 style="margin-top:1.5rem">Session</h3>
-      <p style="font-size:.95rem">You're signed in as the author in this tab. Closing the tab locks the journal again.</p>
+      <p style="font-size:.95rem">You're signed in as the author in this tab only. The journal locks when you press Lock, reload or close the tab, or after ${esc(String(S.cfg.ownerIdleMinutes || 30))} minutes without activity. Unlock again with your passphrase.</p>
       <button class="btn danger" type="button" id="lock">Lock now</button>
     </div>
   </div>`;

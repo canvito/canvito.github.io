@@ -24,6 +24,13 @@ const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
 
 const allowedOrigins = (env) => String(env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const hostOf = (origin) => {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return null;
+  }
+};
 
 function corsHeaders(origin, env) {
   if (!origin || !allowedOrigins(env).includes(origin)) return {};
@@ -57,7 +64,8 @@ async function rateLimit(env, req, scope, limit, windowSec) {
   await env.KV.put(key, String(n + 1), { expirationTtl: Math.max(60, windowSec * 2) });
 }
 
-async function verifyTurnstile(env, req, token) {
+// action: the widget's action name ("redeem" / "guestbook"), so a token solved for one form can't be used on another.
+async function verifyTurnstile(env, req, token, action) {
   if (!env.TURNSTILE_SECRET) {
     if (env.ALLOW_NO_TURNSTILE === '1') return;
     throw new HttpError(503, 'Human verification is not configured');
@@ -69,7 +77,8 @@ async function verifyTurnstile(env, req, token) {
   fd.append('remoteip', clientIp(req));
   const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: fd });
   const d = await r.json().catch(() => ({}));
-  if (!d.success) throw new HttpError(403, 'Human check failed — please try again');
+  const hosts = allowedOrigins(env).map(hostOf).filter(Boolean);
+  if (!d.success || d.action !== action || (hosts.length && !hosts.includes(d.hostname))) throw new HttpError(403, 'Human check failed — please try again');
 }
 
 let keyCache;
@@ -138,7 +147,7 @@ async function requireGuest(req, env) {
 
 async function redeem(req, env) {
   const body = await readJson(req);
-  await verifyTurnstile(env, req, body.turnstileToken);
+  await verifyTurnstile(env, req, body.turnstileToken, 'redeem');
   await rateLimit(env, req, 'redeem', 8, 900);
   const norm = normalizeCode(body.code);
   if (norm.length < 8 || norm.length > 64 || !/^[A-Z0-9]+$/.test(norm)) throw new HttpError(401, 'Invalid or expired code');
@@ -185,7 +194,7 @@ async function vaultMedia(env, postId, assetId) {
   if (!data) throw new HttpError(404, 'Not found');
   const bytes = await decryptBytes(await importAesKey(asset.key), data, `asset:${asset.id}`);
   return new Response(bytes, {
-    headers: { 'content-type': asset.mime || 'application/octet-stream', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' },
+    headers: { 'content-type': asset.mime || 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
   });
 }
 
@@ -200,7 +209,7 @@ async function guestbookList(env) {
 async function guestbookPost(req, env) {
   const body = await readJson(req);
   if (body.website) return json({ ok: true, pending: true }); // honeypot: pretend success
-  await verifyTurnstile(env, req, body.turnstileToken);
+  await verifyTurnstile(env, req, body.turnstileToken, 'guestbook');
   await rateLimit(env, req, 'gb', 3, 3600);
   const name = clean(body.name, 60);
   const message = clean(body.message, 2000);

@@ -3,8 +3,24 @@
 // `keys`: { protected?: CryptoKey, private?: CryptoKey }. Public content needs no key.
 import { importAesKey, sealJSON, openJSON, encryptBytes, decryptBytes, randomId, newRawKey } from './crypto.js';
 import { plainText, mediaRefs } from './markdown.js';
+import { stripMetadata } from './sanitize.js';
 
 export const TIERS = ['public', 'protected', 'private'];
+const TIER_RANK = { public: 0, protected: 1, private: 2 };
+
+// Fails closed: an unrecognized tier is an error, and a missing one keeps the entry's current tier (new entries are private).
+export function resolveTier(value, current) {
+  const t = String(value ?? '').trim().toLowerCase();
+  if (!t) return current || 'private';
+  if (!TIERS.includes(t)) throw new Error(`Unknown tier "${value}" (use public, protected or private)`);
+  return t;
+}
+
+// Moving an entry to a less restricted tier exposes it to more readers; callers must confirm that explicitly.
+export function disclosureWarning(fromTier, toTier) {
+  if (!fromTier || TIER_RANK[toTier] >= TIER_RANK[fromTier]) return null;
+  return `Moving this entry from ${fromTier} to ${toTier} makes it readable by ${toTier === 'public' ? 'everyone' : 'anyone with an access code'}.`;
+}
 export const KINDS = {
   learn: { label: 'Learned', stamp: 'LEARNED' },
   give: { label: 'Gave', stamp: 'GAVE' },
@@ -23,8 +39,7 @@ export const ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const ASSET_ID_RE = /^[a-z0-9]{4,40}$/;
 
 export const MIME = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
-  heic: 'image/heic', mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
   mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
   pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', json: 'application/json',
   zip: 'application/zip', doc: 'application/msword', ppt: 'application/vnd.ms-powerpoint', xls: 'application/vnd.ms-excel',
@@ -53,6 +68,8 @@ export function extOf(name = '', mime = '') {
   let ext = m?.[1];
   if (!ext && mime) ext = Object.keys(MIME).find((k) => MIME[k] === mime);
   if (ext === 'jpeg') ext = 'jpg';
+  if (/^(heic|heif|avif)$/.test(ext || '') || /image\/(heic|heif|avif)/.test(mime))
+    throw new Error(`${name || mime}: HEIC/AVIF photos can't be cleaned of location data here. Convert to JPEG first (iPhone: Settings → Camera → Formats → Most Compatible).`);
   if (!ext || !ALLOWED_EXT.has(ext)) throw new Error(`Unsupported file type: ${name || mime}`);
   return ext;
 }
@@ -70,7 +87,7 @@ export function normalizePost(input, existing) {
     title: String(p.title ?? '').trim(),
     date: String(p.date ?? '').trim() || now.slice(0, 10),
     kind: KINDS[KIND_ALIASES[p.kind] || p.kind] ? KIND_ALIASES[p.kind] || p.kind : 'learn',
-    tier: TIERS.includes(p.tier) ? p.tier : 'public',
+    tier: resolveTier(input.tier, existing?.tier),
     tags: normTags(p.tags),
     summary: String(p.summary ?? '').trim(),
     cover: String(p.cover ?? '').trim(),
@@ -175,7 +192,10 @@ export class Vault {
     return asset;
   }
 
+  // Photos are stripped of location/camera metadata on every write, including tier moves.
   async writeAsset(asset, bytes) {
+    bytes = stripMetadata(bytes, asset.ext);
+    asset.size = bytes.length;
     if (asset.key) {
       const k = await importAesKey(asset.key);
       await this.io.write(paths.vaultAsset(asset), await encryptBytes(k, bytes, `asset:${asset.id}`));
@@ -198,10 +218,13 @@ export class Vault {
     return asset;
   }
 
-  async savePost(input) {
+  // allowDisclosure: the caller has confirmed moving a sealed entry to a less restricted tier.
+  async savePost(input, { allowDisclosure = false } = {}) {
     const prevTier = input.id ? await this.findTier(input.id) : null;
     const prev = prevTier ? await this.readPost(input.id, prevTier) : null;
     const post = normalizePost(input, prev);
+    const warning = disclosureWarning(prevTier, post.tier);
+    if (warning && !allowDisclosure) throw new Error(`${warning} Confirm the change to continue.`);
     if (!this.can(post.tier)) this.key(post.tier);
 
     // Keep only assets that the body/cover reference; move any whose storage doesn't match the tier.

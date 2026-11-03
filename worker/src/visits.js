@@ -17,10 +17,16 @@ export function parseUA(ua = '') {
   return { device, browser, os };
 }
 
-function cleanPath(p) {
+// Only known page shapes are stored; anything else becomes "#/other", so visitors can't plant arbitrary text in reports.
+const PAGE_RE = /^#\/(journal|threads|guestbook|about)?$/;
+const POST_RE = /^#\/p\/[a-z0-9][a-z0-9-]{1,63}$/;
+export function cleanPath(p) {
   const s = clip(p, 300).split('?')[0];
   if (!/^#?\//.test(s)) return null;
-  return s.startsWith('#') ? s : `#${s}`;
+  const h = s.startsWith('#') ? s : `#${s}`;
+  if (PAGE_RE.test(h) || POST_RE.test(h)) return h;
+  if (/^#\/studio(\/|$)/.test(h)) return '#/studio';
+  return '#/other';
 }
 
 function refHost(ref, ownOrigins) {

@@ -6,5 +6,6 @@
   "vault": { "owner": "canvito", "name": "canvito-vault", "branch": "main" },
   "workerUrl": "https://canvito-api.canvito.workers.dev",
   "turnstileSiteKey": "0x4AAAAAAFsCk-YOepCTXvp0",
-  "sessionHours": 12
+  "sessionHours": 12,
+  "ownerIdleMinutes": 30
 }

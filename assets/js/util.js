@@ -108,13 +108,14 @@ export function loadTurnstile() {
   return tsLoading;
 }
 
-// Renders a Turnstile widget; returns { token(), reset() }.
-export async function turnstileWidget(el, sitekey) {
+// Renders a Turnstile widget for one form (action is checked by the Worker); returns { token(), reset() }.
+export async function turnstileWidget(el, sitekey, action) {
   if (!sitekey) return { token: () => '', reset() {} };
   let token = '';
   const ts = await loadTurnstile();
   const id = ts.render(el, {
     sitekey,
+    action,
     theme: document.documentElement.dataset.theme === 'night' ? 'dark' : 'light',
     callback: (t) => (token = t),
     'expired-callback': () => (token = ''),

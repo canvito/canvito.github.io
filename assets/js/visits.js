@@ -70,7 +70,7 @@ export function pageLabel(path, titleOf = () => null) {
   const p = String(path || '');
   const m = p.match(/^#\/p\/([a-z0-9-]+)/);
   if (m) return titleOf(m[1]) || `Entry ${m[1]}`;
-  const names = { '#/': 'Front page', '#/journal': 'Journal', '#/threads': 'Threads', '#/guestbook': 'Guestbook', '#/about': 'About' };
+  const names = { '#/': 'Front page', '#/journal': 'Journal', '#/threads': 'Threads', '#/guestbook': 'Guestbook', '#/about': 'About', '#/other': 'Other / unknown pages' };
   if (names[p]) return names[p];
   if (p.startsWith('#/studio')) return 'Studio';
   return p;

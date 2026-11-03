@@ -39,7 +39,7 @@ export async function guestbookView(root) {
 
   if (!configured) return;
   if (!S.cfg.turnstileSiteKey) $('#gb-ts', root).remove();
-  const ts = await turnstileWidget($('#gb-ts', root), S.cfg.turnstileSiteKey).catch(() => ({ token: () => '', reset() {} }));
+  const ts = await turnstileWidget($('#gb-ts', root), S.cfg.turnstileSiteKey, 'guestbook').catch(() => ({ token: () => '', reset() {} }));
   const form = $('#gb-form', root);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

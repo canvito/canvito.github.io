@@ -6,7 +6,7 @@ import { importAesKey, openKeyring, createKeyring, normalizeCode, randomId } fro
 import { Vault, TIERS, paths, isVaultPath } from './vault.js';
 import { GitHubIO, SplitIO } from './github.js';
 
-const OWNER_KEY = 'canvito.owner';
+const OWNER_KEY = 'canvito.owner'; // legacy: owner secrets used to be kept in sessionStorage; now cleared on boot
 const GUEST_KEY = 'canvito.guest';
 // The author's GitHub token, sealed with a passphrase-derived key, so this device can sign in with the passphrase alone.
 const DEVICE_KEY = 'canvito.device';
@@ -71,7 +71,13 @@ function expireGuest() {
   S.guest = null;
   S.mode = 'public';
   localStorage.removeItem(GUEST_KEY);
+  clearBlobs();
   setTimeout(() => loadIndex().then(emit), 0);
+}
+
+function clearBlobs() {
+  for (const u of blobCache.values()) URL.revokeObjectURL(u);
+  blobCache.clear();
 }
 
 export function ownerIO() {
@@ -86,7 +92,8 @@ export function ownerVault(io = ownerIO()) {
 let vaultCache;
 const vault = () => (vaultCache ??= ownerVault());
 
-async function becomeOwner(secrets, pat, persist = true) {
+// Owner secrets live only in this page's memory: reloading or closing the tab locks the journal.
+async function becomeOwner(secrets, pat) {
   S.secrets = { protected: secrets.protected, private: secrets.private, adminToken: secrets.adminToken };
   S.keys = { protected: await importAesKey(secrets.protected), private: await importAesKey(secrets.private) };
   S.pat = pat;
@@ -94,7 +101,6 @@ async function becomeOwner(secrets, pat, persist = true) {
   S.guest = null;
   localStorage.setItem(NOTRACK_KEY, '1');
   localStorage.removeItem(GUEST_KEY);
-  if (persist) sessionStorage.setItem(OWNER_KEY, JSON.stringify({ ...S.secrets, pat }));
   vaultCache = null;
 }
 
@@ -129,16 +135,7 @@ export async function authorSignIn(passphrase, token) {
 
 export async function boot() {
   S.cfg = (await fetchJSON('config.json')) || {};
-  const owner = sessionStorage.getItem(OWNER_KEY);
-  if (owner) {
-    try {
-      const o = JSON.parse(owner);
-      if (!o.pat) throw new Error('stale session');
-      await becomeOwner(o, o.pat, false);
-    } catch {
-      sessionStorage.removeItem(OWNER_KEY);
-    }
-  }
+  sessionStorage.removeItem(OWNER_KEY);
   if (S.mode !== 'owner') {
     const g = JSON.parse(localStorage.getItem(GUEST_KEY) || 'null');
     if (g && g.exp > Date.now()) {
@@ -215,6 +212,8 @@ export async function unlock(secret, turnstileToken) {
       return { mode: 'owner' };
     }
   }
+  // Access codes never contain spaces; anything that does may be a passphrase and must never be sent to the Worker.
+  if (/\s/.test(secret)) throw new Error('That code was not recognized. (Author on a new device? Use “Author sign-in on a new device” below.)');
   const norm = normalizeCode(secret);
   if (!/^[A-Z0-9]{8,64}$/.test(norm)) throw new Error('That code was not recognized.');
   const r = await api('/api/redeem', { method: 'POST', body: { code: secret, turnstileToken } });
@@ -229,8 +228,7 @@ export async function unlock(secret, turnstileToken) {
 export async function signOut() {
   sessionStorage.removeItem(OWNER_KEY);
   localStorage.removeItem(GUEST_KEY);
-  for (const u of blobCache.values()) URL.revokeObjectURL(u);
-  blobCache.clear();
+  clearBlobs();
   Object.assign(S, { mode: 'public', keys: {}, secrets: null, guest: null, pat: null });
   vaultCache = null;
   await loadIndex();
@@ -238,8 +236,7 @@ export async function signOut() {
 }
 
 export function refreshAfterWrite() {
-  for (const u of blobCache.values()) URL.revokeObjectURL(u);
-  blobCache.clear();
+  clearBlobs();
   return loadIndex().then(emit);
 }
 

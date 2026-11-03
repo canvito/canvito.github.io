@@ -61,18 +61,23 @@ const env = {
   PROTECTED_KEY: secrets.protected,
   ADMIN_TOKEN: secrets.adminToken,
   SESSION_SECRET: secrets.sessionSecret,
-  CONTENT_BASE: `http://localhost:${port}/__vault/`,
+  CONTENT_BASE: `http://127.0.0.1:${port}/__vault/`,
   ALLOWED_ORIGINS: site,
   ALLOW_NO_TURNSTILE: '1',
   SESSION_HOURS: '12',
   GUESTBOOK_AUTO_APPROVE: '0',
 };
 
+// Only the files the Worker actually reads are served (never the keyring, private index or .git).
+const VAULT_FILE = /^(data\/vault\/(index-protected|[a-z0-9][a-z0-9-]{1,63})\.json|media\/vault\/[a-z0-9]{4,40}\.bin)$/;
+
 http
   .createServer(async (req, res) => {
     if (req.url.startsWith('/__vault/')) {
-      const f = path.resolve(VAULT, decodeURIComponent(req.url.slice(9).split('?')[0]));
-      if (!f.startsWith(VAULT) || !existsSync(f)) return res.writeHead(404).end();
+      const rel = decodeURIComponent(req.url.slice(9).split('?')[0]);
+      if (!VAULT_FILE.test(rel) || /^data\/vault\/index-private\.json$/.test(rel)) return res.writeHead(404).end();
+      const f = path.join(VAULT, rel);
+      if (!existsSync(f)) return res.writeHead(404).end();
       return res.writeHead(200).end(await fs.readFile(f));
     }
     const chunks = [];
@@ -85,4 +90,4 @@ http
     res.writeHead(r.status, Object.fromEntries(r.headers));
     res.end(Buffer.from(await r.arrayBuffer()));
   })
-  .listen(port, () => console.log(`Dev worker on http://localhost:${port} (content from ${site}). Set "workerUrl": "http://localhost:${port}" in config.json while testing.`));
+  .listen(port, '127.0.0.1', () => console.log(`Dev worker on http://localhost:${port} (this computer only; content from ${site}). Set "workerUrl": "http://localhost:${port}" in config.json while testing.`));
