@@ -6,7 +6,7 @@ import {
 import { renderMarkdown, plainText, mediaRefs } from '../assets/js/markdown.js';
 import { Vault, paths, resolveTier, normalizePost } from '../assets/js/vault.js';
 import { stripMetadata } from '../assets/js/sanitize.js';
-import { parseFrontMatter, toFrontMatter } from '../tools/frontmatter.mjs';
+import { parseFrontMatter, toFrontMatter, entryFromText } from '../tools/frontmatter.mjs';
 import worker from '../worker/src/index.js';
 import { cleanPath } from '../worker/src/visits.js';
 import { aggregate, reportHtml } from '../assets/js/visits.js';
@@ -183,6 +183,24 @@ test('front matter: comments are ignored, quoted values are kept, round-trips', 
   assert.equal(body, 'Hello');
   const post = { id: 'x1', title: 'He said "hi": ok', date: '2020', tier: 'protected', tags: ['t'], body: 'B' };
   assert.deepEqual(parseFrontMatter(toFrontMatter(post)).meta, { id: 'x1', title: 'He said "hi": ok', date: '2020', tier: 'protected', tags: ['t'] });
+  const bi = { ...post, body: 'English text\n', vi: { title: 'Bài học đầu tiên', summary: 'Tóm tắt', body: 'Nội dung ![ảnh](media:abcd1234)' } };
+  const back = entryFromText(toFrontMatter(bi));
+  assert.deepEqual(back.vi, bi.vi, 'Vietnamese version round-trips');
+  assert.equal(back.body, 'English text\n');
+  assert.equal(entryFromText('---\ntitle: x\n---\nOnly English').vi, undefined);
+});
+
+test('entries keep an optional Vietnamese version, indexed and with its own attachments', async () => {
+  const { vault } = await makeVault();
+  const a = await vault.addAsset(new Uint8Array([1, 2, 3]), { name: 'slides.pdf' }, 'public');
+  const p = await vault.savePost({ title: 'First lesson', date: '2001', tier: 'public', body: 'EN', vi: { title: 'Bài học đầu tiên', summary: '', body: `VI @[slides](media:${a.id})` }, assets: [a] });
+  assert.equal(p.assets.length, 1, 'attachment used only by the Vietnamese text is kept');
+  const meta = (await vault.readIndex('public')).posts[0];
+  assert.equal(meta.vi.title, 'Bài học đầu tiên');
+  assert.match(meta.vi.excerpt, /^VI/);
+  const cleared = await vault.savePost({ ...p, vi: { title: '', summary: '', body: '  ' } });
+  assert.equal(cleared.vi, undefined, 'empty Vietnamese version is dropped');
+  assert.equal((await vault.savePost({ id: p.id, title: 'First lesson' })).tier, 'public');
 });
 
 test('photos are stripped of location and camera metadata, losslessly', async () => {

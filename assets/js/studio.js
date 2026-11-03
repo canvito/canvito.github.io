@@ -110,6 +110,12 @@ async function editorView(root, id) {
         ).join('')}</div>
       </div>
       <label class="f" style="margin-top:.9rem"><span>Summary / dek</span><input class="t" name="summary" maxlength="300" value="${esc(draft.summary)}"></label>
+      <details class="vi-fields" ${draft.vi ? 'open' : ''}>
+        <summary class="mono muted small">Vietnamese version (optional; shown when visitors pick Tiếng Việt)</summary>
+        <label class="f"><span>Title (Tiếng Việt)</span><input class="t" name="titleVi" maxlength="200" lang="vi" value="${esc(draft.vi?.title || '')}"></label>
+        <label class="f"><span>Summary (Tiếng Việt)</span><input class="t" name="summaryVi" maxlength="300" lang="vi" value="${esc(draft.vi?.summary || '')}"></label>
+        <label class="f"><span>Text (Tiếng Việt, Markdown; media from the main text can be reused with the same media: link)</span><textarea class="t vi-body" name="bodyVi" lang="vi">${esc(draft.vi?.body || '')}</textarea></label>
+      </details>
       <div class="grid-2">
         <label class="f"><span>Tags (comma separated)</span><input class="t" name="tags" value="${esc(draft.tags.join(', '))}"></label>
         <label class="f"><span>Cover (URL or upload)</span><span style="display:flex;gap:.4rem"><input class="t" name="cover" value="${esc(draft.cover)}"><button class="btn ghost" type="button" id="cover-up">Upload</button></span></label>
@@ -151,7 +157,7 @@ async function editorView(root, id) {
   const tierNow = () => F.tier.value;
 
   const renderAssets = () => {
-    const refs = new Set(mediaRefs(`${ta.value}\n${F.cover.value}`));
+    const refs = new Set(mediaRefs(`${ta.value}\n${F.cover.value}\n${F.bodyVi.value}`));
     $('#assets', root).innerHTML = draft.assets
       .filter((a) => refs.has(a.id))
       .map((a) => `<span title="media:${a.id}">${pending.has(a.id) ? '⬆ ' : ''}${esc(a.name)} · ${Math.max(1, Math.round(a.size / 1024))} KB</span>`)
@@ -250,7 +256,7 @@ async function editorView(root, id) {
       const v = ownerVault(io);
       const tier = tierNow();
       const body = ta.value;
-      const refs = new Set(mediaRefs(`${body}\n${F.cover.value}`));
+      const refs = new Set(mediaRefs(`${body}\n${F.cover.value}\n${F.bodyVi.value}`));
       status.textContent = 'Encrypting & uploading…';
       for (const a of draft.assets) {
         if (!pending.has(a.id) || !refs.has(a.id)) continue;
@@ -269,6 +275,7 @@ async function editorView(root, id) {
         cover: F.cover.value.trim(),
         location: F.location.value,
         body,
+        vi: { title: F.titleVi.value, summary: F.summaryVi.value, body: F.bodyVi.value },
         assets: draft.assets,
       }, { allowDisclosure: true });
       status.textContent = 'Committing…';

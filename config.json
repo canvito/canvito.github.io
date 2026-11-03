@@ -2,6 +2,7 @@
   "title": "Little × Little",
   "byline": "by Can",
   "author": "Can",
+  "i18n": { "vi": { "title": "Từng chút một", "byline": "của Can" } },
   "repo": { "owner": "canvito", "name": "canvito.github.io", "branch": "main" },
   "vault": { "owner": "canvito", "name": "canvito-vault", "branch": "main" },
   "workerUrl": "https://canvito-api.canvito.workers.dev",

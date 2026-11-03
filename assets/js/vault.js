@@ -97,6 +97,10 @@ export function normalizePost(input, existing) {
     created: existing?.created || p.created || now,
     updated: now,
   };
+  // Optional Vietnamese version; left out entirely when empty.
+  const vi = { title: String(p.vi?.title ?? '').trim(), summary: String(p.vi?.summary ?? '').trim(), body: String(p.vi?.body ?? '') };
+  if (vi.title || vi.summary || vi.body.trim()) post.vi = vi;
+  if (vi.title.length > 200) throw new Error('Vietnamese title is too long (200 max)');
   if (!ID_RE.test(post.id)) throw new Error(`Invalid id "${post.id}" (lowercase letters, digits, dashes)`);
   if (!post.title) throw new Error('Title is required');
   if (post.title.length > 200) throw new Error('Title is too long (200 max)');
@@ -123,6 +127,7 @@ export function toMeta(post) {
     words: text ? text.split(' ').length : 0,
     media: post.assets.length + (post.body.match(/^\s*@\[/gm)?.length || 0),
     updated: post.updated,
+    ...(post.vi ? { vi: { title: post.vi.title, summary: post.vi.summary, excerpt: plainText(post.vi.body).slice(0, 1200) } } : {}),
   };
 }
 
@@ -228,7 +233,7 @@ export class Vault {
     if (!this.can(post.tier)) this.key(post.tier);
 
     // Keep only assets that the body/cover reference; move any whose storage doesn't match the tier.
-    const refs = new Set(mediaRefs(`${post.body}\n${post.cover}`));
+    const refs = new Set(mediaRefs(`${post.body}\n${post.cover}\n${post.vi?.body || ''}`));
     const needVault = post.tier !== 'public';
     const kept = [];
     for (const a of post.assets) {

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { createKeyring, openKeyring, importAesKey, newRawKey, sealJSON, b64urlEncode, randomBytes, sha256Hex } from '../assets/js/crypto.js';
 import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf, resolveTier, disclosureWarning, normalizePost } from '../assets/js/vault.js';
 import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
-import { parseFrontMatter, toFrontMatter } from './frontmatter.mjs';
+import { entryFromText, toFrontMatter } from './frontmatter.mjs';
 import { readKeyCache, writeKeyCache } from './keycache.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,6 +38,7 @@ Entries
   put <file.md> [--allow-downgrade]   Create/update from a front-matter Markdown file (writes id back into file)
   new --title T [--date D] [--kind K] [--tier T] [--tags a,b] [--summary S]
       [--cover path|url] [--location L] [--body text | --body-file f.md] [--id slug]
+      [--title-vi T] [--summary-vi S] [--body-vi text]   optional Vietnamese version
   edit <id> [same flags as new] [--allow-downgrade]
   delete <id>
   attach <file> [--tier T]     Upload a file, print its media: reference (prefer local paths in put)
@@ -61,6 +62,7 @@ Dev
 
 Values: kind = ${Object.keys(KINDS).join('|')}; tier = ${TIERS.join('|')} (default: private; an unknown tier is an error);
 date = YYYY | YYYY-MM | YYYY-MM-DD | YYYY-MM-DDTHH:mm (backdating welcome).
+Vietnamese version in a file: title_vi / summary_vi fields, and the Vietnamese body after a line <!-- vi -->.
 Making a sealed entry less private (private → protected/public, protected → public) needs --allow-downgrade.
 Local file paths in Markdown (![cap](./photo.jpg), @[cap](./talk.pdf)) are uploaded automatically —
 encrypted when the entry is protected/private. Photos are stripped of location/camera metadata.
@@ -279,15 +281,19 @@ async function uploadLocalRefs(vault, post, baseDir, added) {
     return `media:${asset.id}`;
   };
   const re = /(!?\[[^\]]*\]|@\[[^\]]*\])\(([^)\s]+)((?:\s+"[^"]*")?)\)/g;
-  let out = '';
-  let last = 0;
-  for (const m of post.body.matchAll(re)) {
-    out += post.body.slice(last, m.index);
-    const r = await upload(m[2]);
-    out += r ? `${m[1]}(${r}${m[3]})` : m[0];
-    last = m.index + m[0].length;
-  }
-  post.body = out + post.body.slice(last);
+  const rewrite = async (text) => {
+    let out = '';
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      out += text.slice(last, m.index);
+      const r = await upload(m[2]);
+      out += r ? `${m[1]}(${r}${m[3]})` : m[0];
+      last = m.index + m[0].length;
+    }
+    return out + text.slice(last);
+  };
+  post.body = await rewrite(post.body);
+  if (post.vi?.body) post.vi.body = await rewrite(post.vi.body);
   if (post.cover) post.cover = (await upload(post.cover)) || post.cover;
 }
 
@@ -296,6 +302,11 @@ function postFromFlags(flags) {
   for (const k of ['title', 'date', 'kind', 'tier', 'summary', 'cover', 'location', 'id']) if (typeof flags[k] === 'string') p[k] = flags[k];
   if (flags.tags !== undefined) p.tags = String(flags.tags);
   if (typeof flags.body === 'string') p.body = flags.body.replace(/\\n/g, '\n');
+  const vi = {};
+  if (typeof flags['title-vi'] === 'string') vi.title = flags['title-vi'];
+  if (typeof flags['summary-vi'] === 'string') vi.summary = flags['summary-vi'];
+  if (typeof flags['body-vi'] === 'string') vi.body = flags['body-vi'].replace(/\\n/g, '\n');
+  if (Object.keys(vi).length) p.vi = vi;
   return p;
 }
 
@@ -304,6 +315,7 @@ async function save(vault, input, baseDir, flags = {}) {
   const existing = existingTier ? await vault.readPost(input.id, existingTier) : null;
   const draft = { ...(existing || {}), ...input };
   draft.tier = resolveTier(input.tier, existing?.tier);
+  if (input.vi) draft.vi = { ...(existing?.vi || {}), ...input.vi };
   draft.body = draft.body ?? '';
   const warning = disclosureWarning(existingTier, draft.tier);
   if (warning && !flags['allow-downgrade']) die(`${warning}\n  If that is really intended, re-run with --allow-downgrade.`);
@@ -492,10 +504,10 @@ const commands = {
     if (!pos[0]) die('Usage: put <file.md>');
     const file = path.resolve(pos[0]);
     const text = await fs.readFile(file, 'utf8');
-    const { meta, body } = parseFrontMatter(text);
+    const input = entryFromText(text);
     const { vault } = await openVault();
-    const post = await save(vault, { ...meta, body: body.replace(/^\r?\n/, '') }, path.dirname(file), flags);
-    if (!meta.id) {
+    const post = await save(vault, input, path.dirname(file), flags);
+    if (!input.id) {
       const updated = text.replace(/^(\uFEFF?---\r?\n)/, `$1id: ${post.id}\n`);
       if (updated !== text) await fs.writeFile(file, updated);
     }

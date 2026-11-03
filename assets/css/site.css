@@ -115,6 +115,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: none; border: 1px solid var(--ink-3); padding: .2rem .55rem; border-radius: 99px; color: var(--ink-2);
 }
 .access button:hover { border-color: var(--accent); color: var(--accent); }
+.lang-switch { display: inline-flex; align-items: center; gap: .35rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-3); }
+.lang-switch button { background: none; border: 0; padding: .1rem 0; cursor: pointer; color: var(--ink-3); font: inherit; border-bottom: 1px solid transparent; }
+.lang-switch button:hover { color: var(--accent); }
+.lang-switch button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+@media (max-width: 520px) { .topline { flex-wrap: wrap; } .topline-right { flex-wrap: wrap; justify-content: flex-end; } }
 
 /* ---------- layout ---------- */
 main { flex: 1; width: 100%; max-width: var(--w); margin: 0 auto; padding: 2rem 1.25rem 3rem; outline: none; }
@@ -420,3 +425,7 @@ textarea.t { resize: vertical; min-height: 7rem; line-height: 1.5; }
   body { background: #fff; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.lang-note { text-align: center; margin: -.5rem 0 1.2rem; }
+.vi-fields { margin: .9rem 0 .3rem; border: 1px dashed var(--rule); padding: .5rem .8rem; }
+.vi-fields summary { cursor: pointer; }
+.vi-fields .vi-body { min-height: 10rem; }

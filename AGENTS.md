@@ -31,9 +31,13 @@ Body in Markdown. ![Caption](./photo.jpg) uploads local files automatically
 
 > [!LESSON] Takeaway
 > Explaining is learning twice.
+
+<!-- vi -->
+Optional Vietnamese text (same Markdown; reuse the same image paths).
 ```
 
 Fields (don't put comments on front-matter lines):
+* `title_vi`, `summary_vi` and the text after `<!-- vi -->`: optional Vietnamese version, shown when visitors pick Tiếng Việt; omit them if there's no translation (English is shown). When asked to translate, write natural Vietnamese and keep names, places and `media:` links unchanged.
 * `date`: `YYYY`, `YYYY-MM`, `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`. Backdating is expected.
 * `kind`: `learn`, `give`, `reflect`, `milestone`, `artifact` or `page` (the old name `teach` also works).
 * `tier`: `public`, `protected` (access-code readers) or `private` (owner only). Missing means private; an unknown value is an error.
@@ -55,7 +59,7 @@ Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--
 4. Large videos (> ~25 MB) belong on YouTube/Vimeo (unlisted) and should be embedded with `@[caption](url)`.
 5. Unsupported attachment types (SVG, HTML, executables) are rejected on purpose.
 6. Access codes: `node tools/canvito.mjs codes new --type once|timed|permanent --label "Who" [--hours N]`. Show the code to the owner only; never commit it or write it to files.
-7. Run `npm test` after changing any code under `assets/js`, `tools`, or `worker`.
+7. Run `npm test` after changing any code under `assets/js`, `tools`, or `worker`. When adding visitor-facing text to the site, wrap it in `t('English text')` and add the Vietnamese line to the `VI` list in `assets/js/i18n.js`.
 8. Never print, log or commit secrets: the passphrase, GitHub tokens, Worker secrets, or the cached key file in `~/.canvito`. After changing `worker/`, redeploy with `cd worker; npx wrangler deploy` (only when the owner asks).
 9. The owner guide (setup, deployment details, maintenance) is README.md in the PRIVATE vault repo (`../canvito-vault/README.md`). Keep its "Current deployment" table accurate if you change infrastructure. Never copy it into this public repo.
 10. **Keep the owner's docs current, without being asked.** Any change to features, settings, infrastructure or procedures must update the matching docs in `../canvito-vault/` in the same change: `README.md`, `ENTRIES-GUIDE.md` (entries), `ACCESS-GUIDE.md` (unlocking / access codes), `GUESTBOOK-GUIDE.md` (guestbook), `VISITORS-GUIDE.md` (visitor counter). Publish the vault repo and tell the owner which docs changed.

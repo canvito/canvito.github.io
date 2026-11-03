@@ -1,4 +1,5 @@
 import { esc } from './markdown.js';
+import { lang, t } from './i18n.js';
 
 export { esc };
 export const $ = (sel, root = document) => root.querySelector(sel);
@@ -6,7 +7,8 @@ export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-export const monthName = (m) => MONTHS[m - 1];
+const WD_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+export const monthName = (m) => (lang === 'vi' ? `Tháng ${m}` : MONTHS[m - 1]);
 
 export function parseDate(d) {
   const [y, m, rest] = String(d).split('-');
@@ -17,6 +19,11 @@ export function parseDate(d) {
 export function fmtDate(d, { short = false } = {}) {
   const p = parseDate(d);
   if (!p.m) return String(p.y);
+  if (lang === 'vi') {
+    const mon = `${short ? 'thg' : 'tháng'} ${p.m}`;
+    if (!p.d) return `${short ? 'Thg' : 'Tháng'} ${p.m}, ${p.y}`;
+    return `${p.d} ${mon}, ${p.y}${p.time && !short ? ` · ${p.time}` : ''}`;
+  }
   const mon = short ? MONTHS[p.m - 1].slice(0, 3) : MONTHS[p.m - 1];
   if (!p.d) return `${mon} ${p.y}`;
   let s = `${mon} ${p.d}, ${p.y}`;
@@ -29,7 +36,7 @@ export function fmtDate(d, { short = false } = {}) {
 
 export function weekday(d) {
   const p = parseDate(d);
-  return p.d ? WD[new Date(p.y, p.m - 1, p.d).getDay()] : '';
+  return p.d ? (lang === 'vi' ? WD_VI : WD)[new Date(p.y, p.m - 1, p.d).getDay()] : '';
 }
 
 export function roman(n) {
@@ -42,7 +49,7 @@ export function roman(n) {
 export function relTime(ts) {
   const diff = ts - Date.now();
   const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
   if (abs < 3_600_000) return rtf.format(Math.round(diff / 60_000), 'minute');
   if (abs < 86_400_000) return rtf.format(Math.round(diff / 3_600_000), 'hour');
   return rtf.format(Math.round(diff / 86_400_000), 'day');
@@ -61,7 +68,7 @@ export function modal(html, { wide = false, onClose } = {}) {
   const root = $('#modal-root');
   const back = document.createElement('div');
   back.className = 'modal-back';
-  back.innerHTML = `<div class="modal${wide ? ' wide' : ''}" role="dialog" aria-modal="true"><button class="icon-btn x" type="button" aria-label="Close">✕</button>${html}</div>`;
+  back.innerHTML = `<div class="modal${wide ? ' wide' : ''}" role="dialog" aria-modal="true"><button class="icon-btn x" type="button" aria-label="${esc(t('Close'))}">✕</button>${html}</div>`;
   const prev = document.activeElement;
   const close = () => {
     back.remove();
@@ -82,7 +89,7 @@ export function modal(html, { wide = false, onClose } = {}) {
 export function confirmDialog(message, label = 'Confirm') {
   return new Promise((resolve) => {
     let done = false;
-    const m = modal(`<h2>Are you sure?</h2><p>${esc(message)}</p><div class="btn-row"><button class="btn danger" data-ok>${esc(label)}</button><button class="btn ghost" data-no>Cancel</button></div>`, {
+    const m = modal(`<h2>${esc(t('Are you sure?'))}</h2><p>${esc(message)}</p><div class="btn-row"><button class="btn danger" data-ok>${esc(label)}</button><button class="btn ghost" data-no>${esc(t('Cancel'))}</button></div>`, {
       onClose: () => !done && resolve(false),
     });
     m.el.querySelector('[data-ok]').onclick = () => ((done = true), m.close(), resolve(true));
@@ -92,7 +99,7 @@ export function confirmDialog(message, label = 'Confirm') {
 
 export const LOCK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>';
 export const sealHtml = (tier, withLabel = false) =>
-  tier === 'public' ? '' : `<span class="seal ${tier}" title="${tier === 'private' ? 'Private — only you' : 'Protected — shared by code'}">${LOCK_SVG}</span>${withLabel ? `<span class="seal-label" style="--s:var(--${tier})">${tier}</span>` : ''}`;
+  tier === 'public' ? '' : `<span class="seal ${tier}" title="${esc(t(tier === 'private' ? 'Private — only you' : 'Protected — shared by code'))}">${LOCK_SVG}</span>${withLabel ? `<span class="seal-label" style="--s:var(--${tier})">${esc(t(tier))}</span>` : ''}`;
 
 let tsLoading;
 export function loadTurnstile() {
@@ -117,6 +124,7 @@ export async function turnstileWidget(el, sitekey, action) {
     sitekey,
     action,
     theme: document.documentElement.dataset.theme === 'night' ? 'dark' : 'light',
+    language: lang,
     callback: (t) => (token = t),
     'expired-callback': () => (token = ''),
   });
