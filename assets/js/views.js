@@ -1,7 +1,7 @@
 import { renderMarkdown, safeUrl } from './markdown.js';
 import { KINDS, KIND_ALIASES } from './vault.js';
-import { S, getPost, assetUrl, isOwner, visibleTiers } from './session.js';
-import { esc, $, $$, fmtDate, parseDate, weekday, monthName, modal, sealHtml } from './util.js';
+import { S, getPost, assetUrl, isOwner, visibleTiers, setPinned } from './session.js';
+import { esc, $, $$, fmtDate, parseDate, weekday, monthName, modal, sealHtml, confirmDialog, toast } from './util.js';
 import { t, loc, lang } from './i18n.js';
 
 const kindStamp = (k) => `<span class="stamp k-${esc(k)}">${esc(t(KINDS[k]?.stamp || k))}</span>`;
@@ -172,9 +172,9 @@ export function homeView(root) {
   const lead = all.find((m) => m.coverAsset || m.cover) || all[0];
   const rest = all.filter((m) => m !== lead).slice(0, 6);
   const span = years.length ? `${years[years.length - 1]}–${years[0]}` : '—';
-  const tagCounts = {};
-  for (const m of all) for (const t of m.tags || []) tagCounts[t] = (tagCounts[t] || 0) + 1;
-  const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 18);
+  const stats = threadStats();
+  const pins = pinnedVisible(stats);
+  const topTags = [...pins.map((tg) => [tg, stats.get(tg).length, true]), ...[...stats].filter(([tg]) => !pins.includes(tg)).map(([tg, l]) => [tg, l.length, false]).sort((a, b) => b[1] - a[1])].slice(0, 18);
 
   root.innerHTML = `
   <section class="hero">
@@ -200,6 +200,7 @@ export function homeView(root) {
         <div class="balance-bar" title="${esc(t('Learn / Give balance'))}"><i class="b-learn" style="width:${(learn / total) * 100}%"></i><i class="b-give" style="width:${(give / total) * 100}%"></i></div>
         <div class="balance-legend"><span>${esc(t('Learn {p}%', { p: Math.round((learn / total) * 100) }))}</span><span>${esc(span)}</span><span>${esc(t('Give {p}%', { p: Math.round((give / total) * 100) }))}</span></div>
       </div>
+      ${stats.size ? '<div class="spotlight" id="spotlight" aria-live="polite"></div>' : ''}
     </aside>
   </section>
 
@@ -219,11 +220,12 @@ export function homeView(root) {
   ${
     topTags.length
       ? `<div class="section-head"><h2>${esc(t('Threads'))}</h2><a class="more" href="#/threads">${esc(t('All threads →'))}</a></div>
-  <div class="filters">${topTags.map(([t, n]) => `<a class="chip" href="#/journal?tag=${encodeURIComponent(t)}">#${esc(t)} <span class="muted">${n}</span></a>`).join('')}</div>`
+  <div class="filters">${topTags.map(([tg, n, pinned]) => `<a class="chip${pinned ? ' pinned' : ''}" href="#/journal?tag=${encodeURIComponent(tg)}">${pinned ? '📌 ' : ''}#${esc(tg)} <span class="muted">${n}</span></a>`).join('')}</div>`
       : ''
   }`;
 
   hydrateCovers(root);
+  startSpotlight(root, stats, pins);
   root.querySelector('.year-tabs')?.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-year]');
     if (!b) return;
@@ -234,6 +236,53 @@ export function homeView(root) {
     const d = e.target.closest('[data-day]');
     if (d) location.hash = `#/journal?q=${encodeURIComponent(`date:${d.dataset.day}`)}`;
   });
+}
+
+// ---------- threads (tags) ----------
+// tag -> visible entries, newest first.
+function threadStats() {
+  const m = new Map();
+  for (const e of entries()) for (const tg of e.tags || []) (m.get(tg) || m.set(tg, []).get(tg)).push(e);
+  return m;
+}
+// Pinned threads that this visitor can actually see entries in, in pin order.
+const pinnedVisible = (stats) => S.pinned.filter((tg) => stats.has(tg));
+const tagHref = (tg) => `#/journal?tag=${encodeURIComponent(tg)}`;
+
+// Front-page card that shows a random thread every spotlightSeconds (config, default 16).
+// Pinned threads come up twice as often. Pauses on hover/focus; still for reduced-motion users.
+function startSpotlight(root, stats, pins) {
+  const el = $('#spotlight', root);
+  if (!el) return;
+  const pinned = new Set(pins);
+  const pool = [...stats.keys()].flatMap((tg) => (pinned.has(tg) ? [tg, tg] : [tg]));
+  let current = null;
+  const show = () => {
+    let tg;
+    do tg = pool[Math.floor(Math.random() * pool.length)];
+    while (stats.size > 1 && tg === current);
+    current = tg;
+    const list = stats.get(tg);
+    const picks = [...list].sort(() => Math.random() - 0.5).slice(0, 3);
+    el.classList.remove('in');
+    el.innerHTML = `<div class="kicker">${pinned.has(tg) ? '📌 ' : ''}${esc(t('Thread spotlight'))}</div>
+      <h3><a href="${tagHref(tg)}">#${esc(tg)}</a></h3>
+      <div class="mono muted small">${esc(t(list.length === 1 ? '{n} entry' : '{n} entries', { n: list.length }))}</div>
+      <ul>${picks.map((m) => `<li><a href="${href(m)}">${esc(loc(m, 'title'))}</a><span class="mono muted small">${esc(fmtDate(m.date, { short: true }))}</span></li>`).join('')}</ul>
+      <a class="more mono small" href="${tagHref(tg)}">${esc(t('See all →'))}</a>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
+  };
+  show();
+  if (stats.size < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let paused = false;
+  el.addEventListener('mouseenter', () => (paused = true));
+  el.addEventListener('mouseleave', () => (paused = false));
+  el.addEventListener('focusin', () => (paused = true));
+  el.addEventListener('focusout', () => (paused = false));
+  const timer = setInterval(() => {
+    if (!el.isConnected) return clearInterval(timer);
+    if (!paused && document.visibilityState === 'visible') show();
+  }, (Number(S.cfg.spotlightSeconds) || 16) * 1000);
 }
 
 // ---------- journal ----------
@@ -369,19 +418,30 @@ export async function postView(root, id, { asPage = false } = {}) {
 
 // ---------- threads ----------
 export function threadsView(root) {
-  const counts = {};
-  for (const m of entries()) for (const t of m.tags || []) counts[t] = (counts[t] || 0) + 1;
-  const tags = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
-  const max = Math.max(1, ...tags.map((t) => t[1]));
+  const stats = threadStats();
+  const tags = [...stats].map(([tg, l]) => [tg, l.length]).sort((a, b) => a[0].localeCompare(b[0]));
+  const max = Math.max(1, ...tags.map((x) => x[1]));
+  const pins = pinnedVisible(stats);
   const kinds = Object.keys(KINDS).filter((k) => k !== 'page');
   root.innerHTML = `
   <div class="section-head"><h2>${esc(t('Threads'))}</h2><span class="mono muted">${esc(t(tags.length === 1 ? '{n} thread' : '{n} threads', { n: tags.length }))}</span></div>
   ${
+    pins.length
+      ? `<div class="pinned-threads"><span class="kicker">📌 ${esc(t('Pinned'))}</span>${pins.map((tg) => `<a class="chip pinned" href="${tagHref(tg)}">#${esc(tg)} <span class="muted">${stats.get(tg).length}</span></a>`).join('')}</div>`
+      : ''
+  }
+  ${
     tags.length
       ? `<div class="cloud">${tags
-          .map(([tg, n]) => `<a href="#/journal?tag=${encodeURIComponent(tg)}" style="font-size:${(1 + (n / max) * 1.8).toFixed(2)}rem;font-weight:${400 + Math.round((n / max) * 400)}">${esc(tg)}<small>${n}</small></a>`)
+          .map(([tg, n]) => `<a class="${pins.includes(tg) ? 'pinned' : ''}" href="${tagHref(tg)}" style="font-size:${(1 + (n / max) * 1.8).toFixed(2)}rem;font-weight:${400 + Math.round((n / max) * 400)}">${esc(tg)}<small>${n}</small></a>`)
           .join('')}</div>`
       : `<div class="empty">${esc(t('No threads yet — add tags to entries.'))}</div>`
+  }
+  ${
+    isOwner() && tags.length
+      ? `<div class="pin-admin"><h3>Pin threads <small class="mono muted">(only you see this; pinned names are public)</small></h3>
+      <div class="filters">${tags.map(([tg]) => `<button type="button" class="chip ${S.pinned.includes(tg) ? 'on' : ''}" data-pin="${esc(tg)}" aria-pressed="${S.pinned.includes(tg)}">${S.pinned.includes(tg) ? '📌 ' : ''}#${esc(tg)}</button>`).join('')}</div></div>`
+      : ''
   }
   <div class="section-head"><h2>${esc(t('By Kind'))}</h2></div>
   <div class="columns">${kinds
@@ -391,6 +451,24 @@ export function threadsView(root) {
       return `<a class="card" href="#/journal?kind=${k}"><div class="card-meta">${kindStamp(k)}</div><h3>${n} ${esc(label)}</h3></a>`;
     })
     .join('')}</div>`;
+
+  root.querySelector('.pin-admin')?.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-pin]');
+    if (!b) return;
+    const tg = b.dataset.pin;
+    const pinning = !S.pinned.includes(tg);
+    // A tag used only by sealed entries would reveal its name in the public repo.
+    if (pinning && !stats.get(tg).some((m) => m.tier === 'public') && !(await confirmDialog(`#${tg} has no public entries. Pinning publishes the name "${tg}" in the public repo (visitors still only see it if they can read entries in it). Pin anyway?`, 'Pin'))) return;
+    b.disabled = true;
+    try {
+      await setPinned(pinning ? [...S.pinned, tg] : S.pinned.filter((x) => x !== tg));
+      toast(pinning ? `Pinned #${tg}. The live site updates in about a minute.` : `Unpinned #${tg}.`);
+      threadsView(root);
+    } catch (ex) {
+      toast(ex.message, 6000);
+      b.disabled = false;
+    }
+  });
 }
 
 // ---------- about ----------

@@ -23,6 +23,7 @@ export const S = {
   pat: null,
   metas: [],
   byId: new Map(),
+  pinned: [],
   listeners: new Set(),
 };
 
@@ -169,6 +170,25 @@ export async function loadIndex() {
   metas.sort((a, b) => (a.date === b.date ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)));
   S.metas = metas;
   S.byId = new Map(metas.map((m) => [m.id, m]));
+  S.pinned = await loadPins();
+}
+
+// Pinned threads (tags) are public: they live in the public repo next to the public index.
+const PINS_PATH = 'data/public/threads.json';
+async function loadPins() {
+  try {
+    // The author reads straight from GitHub so a change shows before the site finishes redeploying.
+    const data = S.mode === 'owner' ? JSON.parse((await ownerIO().readText(PINS_PATH)) || 'null') : await fetchJSON(PINS_PATH);
+    return (data?.pinned || []).filter((x) => typeof x === 'string');
+  } catch {
+    return S.pinned || [];
+  }
+}
+export async function setPinned(tags) {
+  const io = ownerIO();
+  await io.write(PINS_PATH, `${JSON.stringify({ v: 1, pinned: tags }, null, 2)}\n`);
+  await io.commit('journal: update pinned threads');
+  S.pinned = tags;
 }
 
 export async function getPost(id) {

@@ -9,7 +9,7 @@ import readline from 'node:readline';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createKeyring, openKeyring, importAesKey, newRawKey, sealJSON, b64urlEncode, randomBytes, sha256Hex } from '../assets/js/crypto.js';
-import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf, resolveTier, disclosureWarning, normalizePost } from '../assets/js/vault.js';
+import { Vault, paths, isVaultPath, KINDS, TIERS, MIME, extOf, resolveTier, disclosureWarning, normalizePost, normTags } from '../assets/js/vault.js';
 import { aggregate, standaloneReport, pageLabel } from '../assets/js/visits.js';
 import { entryFromText, toFrontMatter } from './frontmatter.mjs';
 import { readKeyCache, writeKeyCache } from './keycache.mjs';
@@ -48,6 +48,9 @@ Access codes (needs workerUrl in config.json)
   codes new [--type once|timed|permanent] [--label L] [--hours N | --expires ISO] [--uses N] [--code CUSTOM]
   codes revoke <id> [--purge]
   codes revoke-all             Revoke every code (signs every guest out)
+
+Threads (tags)
+  threads list | pin <tag> | unpin <tag>   Pinned threads show first and come up more often in the front-page spotlight
 
 Guestbook
   guestbook list | approve <id> | delete <id>   (visitor text is printed quoted: it is untrusted)
@@ -571,6 +574,34 @@ const commands = {
       const r = await workerApi(s, 'POST', '/api/admin/codes/revoke-all');
       console.log(`✔ Revoked ${r.revoked} active code(s). Every guest is signed out; issue new codes to people who should keep access.`);
     } else die('Usage: codes list|new|revoke|revoke-all');
+  },
+
+  // Pinned threads live in the public repo (data/public/threads.json), so pinned tag names are public.
+  async threads({ pos }) {
+    const file = path.join(ROOT, 'data', 'public', 'threads.json');
+    const pinned = existsSync(file) ? (await readJsonFile(file)).pinned || [] : [];
+    const { vault } = await openVault({ optional: true });
+    const counts = new Map();
+    for (const m of await vault.list()) for (const tg of m.tags || []) (counts.get(tg) || counts.set(tg, { all: 0, pub: 0 }).get(tg)).all++, m.tier === 'public' && counts.get(tg).pub++;
+    const sub = pos[0] || 'list';
+    if (sub === 'list') {
+      for (const [tg, c] of [...counts].sort((a, b) => b[1].all - a[1].all)) console.log(`${pinned.includes(tg) ? '📌' : '  '} ${String(c.all).padStart(4)}  #${tg}${c.pub ? '' : '  (no public entries)'}`);
+      for (const tg of pinned.filter((x) => !counts.has(x))) console.log(`📌    0  #${tg}  (no entries; not shown)`);
+      return console.log(`(${counts.size} threads, ${pinned.length} pinned)`);
+    }
+    if (sub !== 'pin' && sub !== 'unpin') die('Usage: threads list | pin <tag> | unpin <tag>');
+    const tg = normTags(pos[1] || '')[0];
+    if (!tg) die(`Usage: threads ${sub} <tag>`);
+    let next = pinned.filter((x) => x !== tg);
+    if (sub === 'pin') {
+      if (!counts.has(tg)) die(`No entries are tagged #${tg}.`);
+      if (!counts.get(tg).pub) console.log(`⚠ #${tg} has no public entries; pinning publishes the tag name in the public repo (visitors only see it if they can read entries in it).`);
+      next = [...next, tg];
+    }
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, `${JSON.stringify({ v: 1, pinned: next }, null, 2)}\n`);
+    console.log(`✔ ${sub === 'pin' ? 'Pinned' : 'Unpinned'} #${tg}. Pinned now: ${next.map((x) => `#${x}`).join(', ') || '(none)'}`);
+    console.log('  Publish: node tools/canvito.mjs publish');
   },
 
   async guestbook({ pos }) {

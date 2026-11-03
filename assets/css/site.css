@@ -198,6 +198,24 @@ h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; font-variation-
 .on-this-day li:first-child { border-top: 0; }
 .on-this-day .yrs { font-family: var(--mono); font-size: .72rem; color: var(--accent); margin-right: .4rem; }
 
+/* thread spotlight (front page) + pinned threads */
+.spotlight { margin-top: 1.4rem; background: var(--card); border: 1px solid var(--rule); padding: 1rem 1.2rem; box-shadow: var(--shadow); opacity: 0; transform: translateY(4px); transition: opacity .6s ease, transform .6s ease; }
+.spotlight.in { opacity: 1; transform: none; }
+.spotlight h3 { margin: .3rem 0 .1rem; font-size: 1.45rem; }
+.spotlight h3 a { text-decoration: none; }
+.spotlight ul { list-style: none; margin: .6rem 0 .5rem; padding: 0; }
+.spotlight li { padding: .35rem 0; border-top: 1px dotted var(--rule); display: flex; justify-content: space-between; gap: .8rem; align-items: baseline; }
+.spotlight li:first-child { border-top: 0; }
+.spotlight li a { text-decoration: none; }
+.spotlight li a:hover { color: var(--accent); }
+.spotlight .more { text-decoration: none; }
+.chip.pinned { border-color: var(--accent); }
+.pinned-threads { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: center; margin: .5rem 0 0; }
+.cloud a.pinned { color: var(--accent); }
+.pin-admin { border: 1px dashed var(--rule); padding: .8rem 1rem; margin: 0 0 1rem; }
+.pin-admin h3 { margin: 0 0 .6rem; font-size: 1rem; }
+.pin-admin button.chip { cursor: pointer; background: none; font: inherit; }
+
 /* ---------- heatmap ---------- */
 .inkmap-wrap { overflow-x: auto; padding-bottom: .4rem; }
 .inkmap { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); grid-auto-columns: 11px; gap: 3px; width: max-content; }

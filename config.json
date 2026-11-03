@@ -8,5 +8,6 @@
   "workerUrl": "https://canvito-api.canvito.workers.dev",
   "turnstileSiteKey": "0x4AAAAAAFsCk-YOepCTXvp0",
   "sessionHours": 12,
-  "ownerIdleMinutes": 30
+  "ownerIdleMinutes": 30,
+  "spotlightSeconds": 16
 }

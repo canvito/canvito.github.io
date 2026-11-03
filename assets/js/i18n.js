@@ -153,6 +153,9 @@ const VI = {
   '{n} thread': '{n} chủ đề',
   'No threads yet — add tags to entries.': 'Chưa có chủ đề nào — hãy gắn thẻ cho các bài.',
   'By Kind': 'Theo loại',
+  Pinned: 'Đã ghim',
+  'Thread spotlight': 'Chủ đề nổi bật',
+  'See all →': 'Xem tất cả →',
   // about
   'This site counts visits anonymously.': 'Trang này đếm lượt truy cập một cách ẩn danh.',
   Colophon: 'Lời ngỏ',
