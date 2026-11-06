@@ -169,20 +169,21 @@ export function homeView(root) {
   const learn = count('learn');
   const give = count('give');
   const total = learn + give || 1;
-  const lead = all.find((m) => m.coverAsset || m.cover) || all[0];
+  const hasIntro = S.byId.has(HOME_ID);
+  // With an intro, the intro takes the lead-story spot and the newest entries are listed below.
+  const lead = hasIntro ? null : all.find((m) => m.coverAsset || m.cover) || all[0];
   const rest = all.filter((m) => m !== lead).slice(0, 6);
   const span = years.length ? `${years[years.length - 1]}–${years[0]}` : '—';
   const stats = threadStats();
   const pins = pinnedVisible(stats);
   const topTags = [...pins.map((tg) => [tg, stats.get(tg).length, true]), ...[...stats].filter(([tg]) => !pins.includes(tg)).map(([tg, l]) => [tg, l.length, false]).sort((a, b) => b[1] - a[1])].slice(0, 18);
-  const hasIntro = S.byId.has(HOME_ID);
 
   root.innerHTML = `
-  ${hasIntro ? '<section class="intro" id="home-intro"><div class="loading"><span class="quill"></span></div></section>' : ''}
-  ${
-    all.length || !hasIntro
-      ? `<section class="hero">
-    <article class="lead-story">
+  <section class="hero">
+    ${
+      hasIntro
+        ? '<article class="intro" id="home-intro"><div class="loading"><span class="quill"></span></div></article>'
+        : `<article class="lead-story">
       ${
         lead
           ? `<div class="lead-cover" data-cover="${esc(lead.id)}"></div>
@@ -192,7 +193,8 @@ export function homeView(root) {
       <a class="btn ghost" href="${href(lead)}">${esc(t('Read the entry →'))}</a>`
           : `<div class="kicker">${esc(t('Volume I'))}</div><h1>${esc(t('The first page is still blank.'))}</h1><p class="dek">${esc(t('Every journey of learning begins with a single entry.'))}</p>`
       }
-    </article>
+    </article>`
+    }
     <aside>
       <div class="ledger">
         <div><b>${learn}</b><span>${esc(t('Learned'))}</span></div>
@@ -206,9 +208,7 @@ export function homeView(root) {
       </div>
       ${stats.size ? '<div class="spotlight" id="spotlight" aria-live="polite"></div>' : ''}
     </aside>
-  </section>`
-      : ''
-  }
+  </section>
 
   ${onThisDay() ? `<div style="margin-top:2rem">${onThisDay()}</div>` : ''}
 
