@@ -49,7 +49,7 @@ node tools/canvito.mjs put path\to\entry.md      # run again after edits (id pre
 node tools/canvito.mjs show <id> --out entry.md  # export for editing (written to CANVITO_WORKDIR; refused inside a repo)
 ```
 
-Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--tag] [--kind] [--tier] [--json]`, `doctor`, `threads list|pin <tag>|unpin <tag>` (pinned tag names are public; warn the owner before pinning a tag used only by sealed entries), `visitors summary|report` (private visitor counter; reports contain sealed titles and are written to CANVITO_WORKDIR, never into a repo).
+Other commands: `new`, `edit <id> --field value`, `delete <id>`, `list [--q] [--tag] [--kind] [--tier] [--json]`, `doctor`, `threads list|pin <tag>|unpin <tag>` (pinned tag names are public; warn the owner before pinning a tag used only by sealed entries), `visitors summary|report`. Special page entries (kind `page`): id `home` = front-page intro, id `about` = About page (private visitor counter; reports contain sealed titles and are written to CANVITO_WORKDIR, never into a repo).
 
 ## Rules
 

@@ -175,9 +175,13 @@ export function homeView(root) {
   const stats = threadStats();
   const pins = pinnedVisible(stats);
   const topTags = [...pins.map((tg) => [tg, stats.get(tg).length, true]), ...[...stats].filter(([tg]) => !pins.includes(tg)).map(([tg, l]) => [tg, l.length, false]).sort((a, b) => b[1] - a[1])].slice(0, 18);
+  const hasIntro = S.byId.has(HOME_ID);
 
   root.innerHTML = `
-  <section class="hero">
+  ${hasIntro ? '<section class="intro" id="home-intro"><div class="loading"><span class="quill"></span></div></section>' : ''}
+  ${
+    all.length || !hasIntro
+      ? `<section class="hero">
     <article class="lead-story">
       ${
         lead
@@ -202,7 +206,9 @@ export function homeView(root) {
       </div>
       ${stats.size ? '<div class="spotlight" id="spotlight" aria-live="polite"></div>' : ''}
     </aside>
-  </section>
+  </section>`
+      : ''
+  }
 
   ${onThisDay() ? `<div style="margin-top:2rem">${onThisDay()}</div>` : ''}
 
@@ -225,6 +231,7 @@ export function homeView(root) {
   }`;
 
   hydrateCovers(root);
+  fillIntro(root);
   startSpotlight(root, stats, pins);
   root.querySelector('.year-tabs')?.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-year]');
@@ -236,6 +243,28 @@ export function homeView(root) {
     const d = e.target.closest('[data-day]');
     if (d) location.hash = `#/journal?q=${encodeURIComponent(`date:${d.dataset.day}`)}`;
   });
+}
+
+// ---------- front page intro ----------
+// A page entry with id "home" is shown at the top of the front page (in Vietnamese when it has a Vietnamese version).
+const HOME_ID = 'home';
+async function fillIntro(root) {
+  const el = $('#home-intro', root);
+  if (!el) return;
+  try {
+    const post = await getPost(HOME_ID);
+    if (!el.isConnected) return;
+    if (!post) return el.remove();
+    const showVi = lang === 'vi' && !!post.vi?.body?.trim();
+    el.innerHTML = `<div class="prose"${showVi ? ' lang="vi"' : lang === 'vi' ? ' lang="en"' : ''}>${renderMarkdown(showVi ? post.vi.body : post.body, { asset: (aid) => post.assets?.find((a) => a.id === aid) })}</div>${
+      isOwner() ? `<p class="mono small intro-edit"><a href="#/studio/edit/${HOME_ID}">${esc(t('Edit this page'))}</a></p>` : ''
+    }`;
+    hydrateMedia(el, post);
+    enableLightbox(el);
+  } catch (e) {
+    console.warn(e);
+    el.remove();
+  }
 }
 
 // ---------- threads (tags) ----------

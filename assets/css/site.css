@@ -198,6 +198,12 @@ h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; font-variation-
 .on-this-day li:first-child { border-top: 0; }
 .on-this-day .yrs { font-family: var(--mono); font-size: .72rem; color: var(--accent); margin-right: .4rem; }
 
+/* front page intro (page entry "home") */
+.intro { max-width: 46rem; margin: .4rem auto 2.8rem; }
+.intro .prose { font-size: 1.14rem; }
+.intro .prose > p:first-of-type::first-letter { float: none; font: inherit; color: inherit; padding: 0; margin: 0; line-height: inherit; }
+.intro .intro-edit { text-align: right; margin: .4rem 0 0; }
+
 /* thread spotlight (front page) + pinned threads */
 .spotlight { margin-top: 1.4rem; background: var(--card); border: 1px solid var(--rule); padding: 1rem 1.2rem; box-shadow: var(--shadow); opacity: 0; transform: translateY(4px); transition: opacity .6s ease, transform .6s ease; }
 .spotlight.in { opacity: 1; transform: none; }
