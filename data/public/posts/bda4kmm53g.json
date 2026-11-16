@@ -1,0 +1,34 @@
+{
+  "id": "bda4kmm53g",
+  "title": "Built PhotoSort, privacy-first AI for my photo library",
+  "date": "2026-11-09T11:59",
+  "kind": "learn",
+  "tier": "public",
+  "tags": [
+    "photos",
+    "local-ai",
+    "privacy",
+    "side-projects",
+    "open-source"
+  ],
+  "summary": "Sort, gather, search and recognize people in photos and videos with AI models running on my own machines. Nothing goes to a cloud AI.",
+  "cover": "media:wa6q7wtgdkss",
+  "location": "",
+  "body": "Phone photos, screenshots and videos pile up faster than anyone can organize them. Cloud photo services can sort and search all of that, but only by sending your pictures to someone else's AI. I wanted the same convenience without that trade, so I built **PhotoSort**.\r\n\r\nPhotoSort runs AI models on my own GPUs at home, through NVIDIA's Personal AI Router, and never sends a photo, video frame, face or caption to a cloud AI. That rule is enforced in code, not just promised.\r\n\r\nWhat it does:\r\n\r\n- **Sorts** photos, screenshots and videos into folders like people, food, receipts and chat screenshots.\r\n- **Gathers by request:** \"birthday party last Sunday\" pulls the matching photos and videos into one folder and leaves everything else alone.\r\n- **Searches** in plain language (\"kids on the boat\"), with thumbnails to browse.\r\n- **Recognizes people** from a few reference photos, or finds the different people in a folder for me to name.\r\n- **Stays reversible:** preview first, every move is journaled, and anything can be undone.\r\n\r\nThe command-line tool and its desktop dashboard (live progress, a media gallery, run history and privacy checks) came together over three days. Measured on my home cluster: about 100 images a minute sorted, 75 a minute captioned for search, and thousands a minute face-tagged.\r\n\r\nWebsite: [PhotoSort.canvo.com](https://PhotoSort.canvo.com/) · Code: [github.com/canvito/PhotoSort](https://github.com/canvito/PhotoSort)\r\n\r\n> [!LESSON] Takeaway\r\n> Privacy you can't verify is only a promise. Putting the \"no cloud\" rule in code, with a check before any photo leaves the PC, made it something I could trust.\n",
+  "assets": [
+    {
+      "id": "wa6q7wtgdkss",
+      "ext": "png",
+      "mime": "image/png",
+      "name": "photosort.png",
+      "size": 68911
+    }
+  ],
+  "created": "2026-11-16T19:42:05.544Z",
+  "updated": "2026-11-16T19:42:05.544Z",
+  "vi": {
+    "title": "Tự làm PhotoSort, AI riêng tư cho kho ảnh của tôi",
+    "summary": "Phân loại, gom nhóm, tìm kiếm và nhận diện người trong ảnh và video bằng các mô hình AI chạy trên chính máy của tôi. Không gửi gì lên AI đám mây.",
+    "body": "Ảnh chụp điện thoại, ảnh màn hình và video chất đống nhanh hơn bất kỳ ai kịp sắp xếp. Các dịch vụ ảnh trên đám mây có thể phân loại và tìm kiếm giúp, nhưng cái giá là phải gửi ảnh của bạn cho AI của người khác. Tôi muốn có sự tiện lợi đó mà không phải đánh đổi, nên tôi làm **PhotoSort**.\r\n\r\nPhotoSort chạy các mô hình AI trên chính các GPU ở nhà tôi, thông qua Personal AI Router của NVIDIA, và không bao giờ gửi ảnh, khung hình video, khuôn mặt hay chú thích nào lên AI đám mây. Quy tắc này được ràng buộc ngay trong mã nguồn, chứ không chỉ là lời hứa.\r\n\r\nNhững gì nó làm được:\r\n\r\n- **Phân loại** ảnh, ảnh màn hình và video vào các thư mục như người, đồ ăn, hóa đơn và ảnh chụp tin nhắn.\r\n- **Gom theo yêu cầu:** \"tiệc sinh nhật Chủ nhật tuần trước\" sẽ gom ảnh và video phù hợp vào một thư mục, mọi thứ khác giữ nguyên.\r\n- **Tìm kiếm** bằng ngôn ngữ tự nhiên (\"các con trên thuyền\"), có ảnh thu nhỏ để duyệt.\r\n- **Nhận diện người** từ vài ảnh mẫu, hoặc tìm ra những người khác nhau trong một thư mục để tôi đặt tên.\r\n- **Luôn hoàn tác được:** xem trước, mọi lần di chuyển đều được ghi lại, và có thể hoàn tác bất cứ lúc nào.\r\n\r\nCông cụ dòng lệnh và bảng điều khiển trên máy tính (tiến độ trực tiếp, thư viện ảnh, lịch sử chạy và kiểm tra quyền riêng tư) được hoàn thành trong ba ngày. Đo trên cụm máy ở nhà: khoảng 100 ảnh mỗi phút khi phân loại, 75 ảnh mỗi phút khi tạo chú thích để tìm kiếm, và hàng nghìn ảnh mỗi phút khi gắn thẻ khuôn mặt.\r\n\r\nTrang web: [PhotoSort.canvo.com](https://PhotoSort.canvo.com/) · Mã nguồn: [github.com/canvito/PhotoSort](https://github.com/canvito/PhotoSort)\r\n\r\n> [!LESSON] Bài học\r\n> Quyền riêng tư mà không kiểm chứng được thì chỉ là lời hứa. Đưa quy tắc \"không dùng đám mây\" vào mã nguồn, với bước kiểm tra trước khi bất kỳ bức ảnh nào rời khỏi máy, mới khiến tôi thật sự tin tưởng.\r\n"
+  }
+}
