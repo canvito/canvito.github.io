@@ -1,0 +1,33 @@
+{
+  "id": "sz4oixzshp",
+  "title": "Built a test strip analyzer for my aquarium",
+  "date": "2026-11-15T15:53",
+  "kind": "learn",
+  "tier": "public",
+  "tags": [
+    "aquarium",
+    "computer-vision",
+    "side-projects",
+    "open-source"
+  ],
+  "summary": "A browser app that reads aquarium test strips from a phone photo, so I don't have to squint at the color chart.",
+  "cover": "media:zcz7625pkosg",
+  "location": "",
+  "body": "Reading aquarium test strips by eye never felt reliable to me. Is that pad pH 7.0 or 7.5? Nitrite 0 or 0.5? The answer changes with the lighting. So I built **Test Strip Analyzer**, a small web app that reads API 5 in 1 test strips from a phone photo.\r\n\r\nYou photograph the dipped strip lying on the kit's color card, tap the four corners of the color table and the two end pads, and the app does the rest:\r\n\r\n- It compares every pad with the chart swatches **in the same photo**, so both are under the same light.\r\n- It matches colors with CIELAB / CIEDE2000 (ΔE₀₀), a perceptual color difference, and interpolates between chart steps (pH 7.3 instead of \"7.0 or 7.5?\").\r\n- It shows a range when the chart itself can't tell values apart, and warns about glare, shadows and read timing.\r\n- It rates each reading Normal / Low / High for the tank type, with the potential impact and suggested fixes.\r\n\r\nEverything runs in the browser. Photos never leave the phone, and there's no server: just static files on GitHub Pages.\r\n\r\nThe first version came together in one evening, from the first commit to a calibrated, working app. The next morning I added hosting docs and a disclaimer. It's for educational use only: strips are screening tools, so anything alarming should be confirmed with a liquid test kit.\r\n\r\nTry it: [canvo.com/TestStripAnalyzer](https://canvo.com/TestStripAnalyzer/) · Code: [github.com/canvito/TestStripAnalyzer](https://github.com/canvito/TestStripAnalyzer)\r\n\r\n> [!LESSON] Takeaway\r\n> Measure the sample and the reference under the same conditions. Putting the strip and the color chart in one photo removed most of the problem before any math was needed.\n",
+  "assets": [
+    {
+      "id": "zcz7625pkosg",
+      "ext": "png",
+      "mime": "image/png",
+      "name": "teststripanalyzer.png",
+      "size": 57277
+    }
+  ],
+  "created": "2026-11-16T19:12:05.785Z",
+  "updated": "2026-11-16T19:12:05.785Z",
+  "vi": {
+    "title": "Tự làm ứng dụng đọc que thử nước cho bể cá",
+    "summary": "Một ứng dụng chạy trên trình duyệt, đọc que thử nước bể cá từ ảnh chụp điện thoại, để tôi không phải căng mắt so với bảng màu.",
+    "body": "Đọc que thử nước bể cá bằng mắt chưa bao giờ khiến tôi thấy chắc chắn. Ô này là pH 7.0 hay 7.5? Nitrite 0 hay 0.5? Câu trả lời thay đổi theo ánh sáng. Vì vậy tôi làm **Test Strip Analyzer**, một ứng dụng web nhỏ đọc que thử API 5 in 1 từ ảnh chụp bằng điện thoại.\r\n\r\nBạn chụp que thử vừa nhúng đặt trên tấm bảng màu của bộ kit, chạm vào bốn góc của bảng màu và hai ô ở hai đầu que, ứng dụng sẽ lo phần còn lại:\r\n\r\n- So sánh từng ô trên que với các ô màu mẫu **trong cùng một bức ảnh**, nên cả hai cùng chung một điều kiện ánh sáng.\r\n- So màu bằng CIELAB / CIEDE2000 (ΔE₀₀), một thước đo khác biệt màu theo cảm nhận của mắt người, và nội suy giữa các nấc trên bảng (pH 7.3 thay vì \"7.0 hay 7.5?\").\r\n- Hiển thị một khoảng giá trị khi chính bảng màu không phân biệt được, và cảnh báo về chói sáng, bóng đổ và thời điểm đọc.\r\n- Đánh giá từng chỉ số là Bình thường / Thấp / Cao theo loại bể, kèm tác động có thể xảy ra và cách khắc phục gợi ý.\r\n\r\nMọi thứ chạy ngay trên trình duyệt. Ảnh không bao giờ rời khỏi điện thoại, và không có máy chủ nào: chỉ là các tệp tĩnh trên GitHub Pages.\r\n\r\nPhiên bản đầu tiên hoàn thành trong một buổi tối, từ commit đầu tiên đến một ứng dụng đã hiệu chỉnh và chạy được. Sáng hôm sau tôi bổ sung tài liệu về hosting và phần miễn trừ trách nhiệm. Ứng dụng chỉ dành cho mục đích học hỏi: que thử chỉ là công cụ sàng lọc, nên kết quả nào đáng lo cần được kiểm tra lại bằng bộ test dạng lỏng.\r\n\r\nDùng thử: [canvo.com/TestStripAnalyzer](https://canvo.com/TestStripAnalyzer/) · Mã nguồn: [github.com/canvito/TestStripAnalyzer](https://github.com/canvito/TestStripAnalyzer)\r\n\r\n> [!LESSON] Bài học\r\n> Đo mẫu và chuẩn trong cùng một điều kiện. Đặt que thử và bảng màu chung một bức ảnh đã giải quyết phần lớn vấn đề trước cả khi cần đến toán học.\r\n"
+  }
+}
