@@ -171,7 +171,7 @@ export async function loadIndex() {
     }
     const days = (await sealed)?.days || {};
     const str = (v) => (typeof v === 'string' ? v.slice(0, 240) : '');
-    const teaser = (x) => ({ title: str(x?.title), summary: str(x?.summary), ...(x?.vi ? { vi: { title: str(x.vi.title), summary: str(x.vi.summary) } } : {}) });
+    const teaser = (x) => ({ title: str(x?.title), kind: /^[a-z]{1,20}$/.test(x?.kind) ? x.kind : '', summary: str(x?.summary), ...(x?.vi ? { vi: { title: str(x.vi.title), summary: str(x.vi.summary) } } : {}) });
     S.sealedDays = new Map(
       Object.entries(days)
         .filter(([d, list]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Array.isArray(list) && list.length)
@@ -183,6 +183,15 @@ export async function loadIndex() {
   S.metas = metas;
   S.byId = new Map(metas.map((m) => [m.id, m]));
   S.pinned = await loadPins();
+}
+
+// Protected entries a public visitor can't read yet, as list items (title + one-sentence teaser, no id or tags).
+// Shown everywhere entries are listed or counted; opening one asks for an access code. Empty for guests and the owner.
+export function sealedMetas() {
+  const out = [];
+  for (const [day, list] of S.sealedDays)
+    list.forEach((x, i) => out.push({ id: `sealed-${day}-${i}`, sealed: true, date: day, kind: x.kind, tier: 'protected', title: x.title, summary: x.summary, vi: x.vi, tags: [] }));
+  return out;
 }
 
 // Pinned threads (tags) are public: they live in the public repo next to the public index.

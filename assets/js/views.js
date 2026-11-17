@@ -1,6 +1,6 @@
 import { renderMarkdown, safeUrl } from './markdown.js';
 import { KINDS, KIND_ALIASES } from './vault.js';
-import { S, getPost, assetUrl, isOwner, visibleTiers, setPinned } from './session.js';
+import { S, getPost, assetUrl, isOwner, visibleTiers, setPinned, sealedMetas } from './session.js';
 import { esc, $, $$, fmtDate, parseDate, weekday, monthName, modal, sealHtml, confirmDialog, toast } from './util.js';
 import { t, loc, lang } from './i18n.js';
 
@@ -8,6 +8,13 @@ const kindStamp = (k) => `<span class="stamp k-${esc(k)}">${esc(t(KINDS[k]?.stam
 const kindLabel = (k) => t(KINDS[k]?.label || k);
 const tagLinks = (tags) => (tags?.length ? `<div class="tags">${tags.map((t) => `<a href="#/journal?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>` : '');
 const entries = () => S.metas.filter((m) => m.kind !== 'page');
+// Visible entries plus teasers of protected entries a public visitor can't read yet (see sealedMetas), newest first.
+const listed = () => {
+  const sealed = sealedMetas();
+  return sealed.length ? [...entries(), ...sealed].sort((a, b) => b.date.localeCompare(a.date)) : entries();
+};
+const sealedTitle = (m) => loc(m, 'title') || t('A protected entry');
+const isKind = (k) => !!KINDS[k] && k !== 'page';
 const href = (m) => `#/p/${encodeURIComponent(m.id)}`;
 
 // ---------- search ----------
@@ -149,16 +156,25 @@ function inkmap(year) {
 function onThisDay() {
   const now = new Date();
   const md = `-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const list = entries().filter((m) => m.date.slice(4, 10) === md && +m.date.slice(0, 4) < now.getFullYear());
+  const list = listed().filter((m) => m.date.slice(4, 10) === md && +m.date.slice(0, 4) < now.getFullYear());
   if (!list.length) return '';
   const today = lang === 'vi' ? `Ngày ${now.getDate()} tháng ${now.getMonth() + 1}` : `${monthName(now.getMonth() + 1)} ${now.getDate()}`;
   return `<div class="on-this-day"><div class="kicker">${esc(t('On this day'))}</div><h3>${esc(t('{date}, across the years', { date: today }))}</h3><ul>${list
-    .map((m) => `<li><span class="yrs">${esc(t('{n}y ago', { n: now.getFullYear() - +m.date.slice(0, 4) }))}</span><a href="${href(m)}">${esc(loc(m, 'title'))}</a> ${sealHtml(m.tier)}</li>`)
+    .map((m) => `<li><span class="yrs">${esc(t('{n}y ago', { n: now.getFullYear() - +m.date.slice(0, 4) }))}</span>${
+      m.sealed ? `<a href="${dayHref(m.date)}" data-sealed-day="${esc(m.date)}">${esc(sealedTitle(m))}</a>` : `<a href="${href(m)}">${esc(loc(m, 'title'))}</a>`
+    } ${sealHtml(m.tier)}</li>`)
     .join('')}</ul></div>`;
 }
 
 function card(m) {
   const summary = loc(m, 'summary');
+  if (m.sealed)
+    return `<a class="card sealed-card" href="${dayHref(m.date)}" data-sealed-day="${esc(m.date)}" title="${esc(t('Unlock to read'))}">
+    <div class="cover sealed-cover">${sealHtml('protected')}<span>${esc(t('Unlock to read'))}</span></div>
+    <div class="card-meta">${isKind(m.kind) ? kindStamp(m.kind) : ''}<span class="date">${esc(fmtDate(m.date, { short: true }))}</span>${sealHtml(m.tier)}</div>
+    <h3>${esc(sealedTitle(m))}</h3>
+    ${summary ? `<p>${esc(summary)}</p>` : ''}
+  </a>`;
   return `<a class="card" href="${href(m)}">
     <div class="cover" data-cover="${esc(m.id)}"></div>
     <div class="card-meta">${kindStamp(m.kind)}<span class="date">${esc(fmtDate(m.date, { short: true }))}</span>${sealHtml(m.tier)}</div>
@@ -169,16 +185,18 @@ function card(m) {
 
 export function homeView(root) {
   const all = entries();
-  const count = (k) => all.filter((m) => m.kind === k).length;
-  const years = [...new Set(all.map((m) => +m.date.slice(0, 4)))].sort((a, b) => b - a);
-  const inkYears = [...new Set([...years, ...[...S.sealedDays.keys()].map((d) => +d.slice(0, 4))])].sort((a, b) => b - a);
+  // Counts, the year span and the latest list include protected teasers; the lead story is always a readable entry.
+  const shown = listed();
+  const count = (k) => shown.filter((m) => m.kind === k).length;
+  const years = [...new Set(shown.map((m) => +m.date.slice(0, 4)))].sort((a, b) => b - a);
+  const inkYears = years;
   const learn = count('learn');
   const give = count('give');
   const total = learn + give || 1;
   const hasIntro = S.byId.has(HOME_ID);
   // With an intro, the intro takes the lead-story spot and the newest entries are listed below.
   const lead = hasIntro ? null : all.find((m) => m.coverAsset || m.cover) || all[0];
-  const rest = all.filter((m) => m !== lead).slice(0, 6);
+  const rest = shown.filter((m) => m !== lead).slice(0, 6);
   const span = years.length ? `${years[years.length - 1]}–${years[0]}` : '—';
   const stats = threadStats();
   const pins = pinnedVisible(stats);
@@ -229,7 +247,7 @@ export function homeView(root) {
       : ''
   }
 
-  ${rest.length ? `<div class="section-head"><h2>${esc(t('Latest Entries'))}</h2><a class="more" href="#/journal">${esc(t('All {n} →', { n: all.length }))}</a></div><div class="columns">${rest.map(card).join('')}</div>` : ''}
+  ${rest.length ? `<div class="section-head"><h2>${esc(t('Latest Entries'))}</h2><a class="more" href="#/journal">${esc(t('All {n} →', { n: shown.length }))}</a></div><div class="columns">${rest.map(card).join('')}</div>` : ''}
 
   ${
     topTags.length
@@ -254,10 +272,12 @@ export function homeView(root) {
   };
   root.addEventListener('click', (e) => {
     const d = e.target.closest('[data-day],[data-sealed-day]');
-    if (d) openDay(d);
+    if (!d) return;
+    if (d.dataset.sealedDay) e.preventDefault();
+    openDay(d);
   });
   root.addEventListener('keydown', (e) => {
-    const d = (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-sealed-day]');
+    const d = (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('i[data-sealed-day]');
     if (d) (e.preventDefault(), openDay(d));
   });
 }
@@ -335,7 +355,7 @@ function startSpotlight(root, stats, pins) {
 // ---------- journal ----------
 export function journalView(root, params) {
   const f = Object.fromEntries(params);
-  const results = search(entries(), f);
+  const results = search(listed(), f);
   const filtered = Object.values(f).some(Boolean);
   const years = {};
   for (const m of results) (years[m.date.slice(0, 4)] ||= []).push(m);
@@ -347,17 +367,6 @@ export function journalView(root, params) {
     return `#/journal${s ? `?${s}` : ''}`;
   };
   const tiers = visibleTiers();
-  // Viewing one day (from the Year in Ink) that also has protected entries this visitor can't see yet.
-  const qDay = String(f.q || '').match(/date:(\d{4}-\d{2}-\d{2})/)?.[1];
-  const sealedList = qDay ? S.sealedDays.get(qDay) || [] : [];
-  const hiddenSealed = sealedList.length;
-  const teasers = sealedList.filter((x) => x.title);
-  const sealedNote = hiddenSealed
-    ? `<div class="sealed-day">
-        <p class="sealed-note">${sealHtml('protected')} ${esc(t(hiddenSealed > 1 ? '{n} more protected entries on this day.' : '{n} more protected entry on this day.', { n: hiddenSealed }))} <button type="button" class="linkish" data-unlock-day="${esc(qDay)}">${esc(t('Unlock to read'))}</button></p>
-        ${teasers.map((x) => `<button type="button" class="sealed-teaser" data-unlock-day="${esc(qDay)}"><h3>${esc(loc(x, 'title'))}</h3>${loc(x, 'summary') ? `<p>${esc(loc(x, 'summary'))}</p>` : ''}</button>`).join('')}
-      </div>`
-    : '';
 
   let body = '';
   for (const y of yearKeys) {
@@ -371,6 +380,18 @@ export function journalView(root, params) {
         lastMonth = monthKey;
       }
       const summary = loc(m, 'summary');
+      // A protected entry this visitor can't read yet: title + teaser; opening it asks for an access code.
+      if (m.sealed) {
+        body += `<a class="entry sealed-entry" href="${dayHref(m.date)}" data-unlock-day="${esc(m.date)}" title="${esc(t('Unlock to read'))}">
+        <div class="day">${p.d ? `<b>${p.d}</b><span>${weekday(m.date)}</span>` : `<b>·</b>`}</div>
+        <div class="body">
+          <div class="card-meta">${isKind(m.kind) ? kindStamp(m.kind) : ''}${sealHtml('protected')}<span class="date">${esc(t('Unlock to read'))}</span></div>
+          <h3>${esc(sealedTitle(m))}</h3>
+          ${summary ? `<p>${esc(summary)}</p>` : ''}
+        </div>
+      </a>`;
+        continue;
+      }
       body += `<a class="entry k-${esc(m.kind)}" href="${href(m)}">
         <div class="day">${p.d ? `<b>${p.d}</b><span>${weekday(m.date)}</span>` : `<b>·</b>`}</div>
         <div class="body">
@@ -396,8 +417,7 @@ export function journalView(root, params) {
         ${f.tag ? `<span class="sep"></span><a class="chip on" href="${qp({ tag: '' })}">#${esc(f.tag)} ✕</a>` : ''}
       </div>
       ${filtered ? `<p class="result-note">${esc(t(results.length === 1 ? '{n} entry' : '{n} entries', { n: results.length }))}${f.q ? esc(t(' for “{q}”', { q: f.q })) : ''}. <a href="#/journal">${esc(t('Clear'))}</a></p>` : ''}
-      ${sealedNote}
-      ${body || (hiddenSealed ? '' : `<div class="empty">${esc(t(filtered ? 'Nothing matches — try fewer words.' : 'No entries yet.'))}</div>`)}
+      ${body || `<div class="empty">${esc(t(filtered ? 'Nothing matches — try fewer words.' : 'No entries yet.'))}</div>`}
     </div>
   </div>`;
   hydrateCovers(root);
@@ -408,6 +428,7 @@ export function journalView(root, params) {
     document.getElementById(`y-${a.dataset.jump}`)?.scrollIntoView({ behavior: 'smooth' });
   });
   for (const b of root.querySelectorAll('[data-unlock-day]')) b.addEventListener('click', (e) => {
+    e.preventDefault();
     document.dispatchEvent(new CustomEvent('canvito:unlock', { detail: { then: dayHref(e.currentTarget.dataset.unlockDay) } }));
   });
 }
@@ -508,7 +529,7 @@ export function threadsView(root) {
   <div class="section-head"><h2>${esc(t('By Kind'))}</h2></div>
   <div class="columns">${kinds
     .map((k) => {
-      const n = entries().filter((m) => m.kind === k).length;
+      const n = listed().filter((m) => m.kind === k).length;
       const label = lang === 'vi' ? kindLabel(k).toLowerCase() : `${KINDS[k].label.toLowerCase()}${n === 1 ? '' : k === 'reflect' || k === 'milestone' || k === 'artifact' ? 's' : ''}`;
       return `<a class="card" href="#/journal?kind=${k}"><div class="card-meta">${kindStamp(k)}</div><h3>${n} ${esc(label)}</h3></a>`;
     })

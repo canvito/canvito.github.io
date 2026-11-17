@@ -1,4 +1,4 @@
-import { S, boot, onChange, unlock, authorSignIn, signOut, isOwner, trackVisit } from './session.js';
+import { S, boot, onChange, unlock, authorSignIn, signOut, isOwner, trackVisit, sealedMetas } from './session.js';
 import { homeView, journalView, postView, threadsView, aboutView, notFound } from './views.js';
 import { guestbookView } from './guestbook.js';
 import { esc, $, $$, modal, toast, roman, relTime, turnstileWidget, LOCK_SVG } from './util.js';
@@ -44,7 +44,8 @@ const brandTitle = (s) => esc(s).replaceAll('×', '<span class="brand-x" aria-hi
 const siteTitle = () => cfgText(S.cfg, 'title') || 'Little × Little';
 
 function renderChrome() {
-  const entries = S.metas.filter((m) => m.kind !== 'page');
+  // Includes protected entries public visitors see as teasers, so "No." matches the journal list.
+  const entries = [...S.metas.filter((m) => m.kind !== 'page'), ...sealedMetas()].sort((a, b) => b.date.localeCompare(a.date));
   const first = entries.length ? +entries[entries.length - 1].date.slice(0, 4) : new Date().getFullYear();
   const vol = new Date().getFullYear() - first + 1;
   $('#dateline').textContent = `${new Date().toLocaleDateString(locale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · ${t('Vol. {v} · No. {n}', { v: roman(vol), n: entries.length })}`;

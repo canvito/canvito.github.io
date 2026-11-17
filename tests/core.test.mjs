@@ -294,7 +294,7 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   const { io, vault, raw } = await makeVault();
   const img = pngFixture();
   const asset = await vault.addAsset(img, { name: 'p.png' }, 'protected');
-  const prot = await vault.savePost({ title: 'Family notes', summary: 'Notes from the reunion. Who came, what we ate.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt. Ai đến, ăn gì.' }, date: '2015-02-03', tier: 'protected', body: `![x](media:${asset.id})`, cover: `media:${asset.id}`, assets: [asset] });
+  const prot = await vault.savePost({ title: 'Family notes', kind: 'reflect', summary: 'Notes from the reunion. Who came, what we ate.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt. Ai đến, ăn gì.' }, date: '2015-02-03', tier: 'protected', body: `![x](media:${asset.id})`, cover: `media:${asset.id}`, assets: [asset] });
   const priv = await vault.savePost({ title: 'Diary', date: '2016', tier: 'private', body: 'secret' });
 
   const realFetch = globalThis.fetch;
@@ -352,7 +352,7 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   env.SEALED_DAYS_PUBLIC = 'titles';
   const sd = await call('GET', '/api/sealed-days');
   assert.deepEqual(sd.data, {
-    days: { '2015-02-03': [{ title: 'Family notes', summary: 'Notes from the reunion.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt.' } }] },
+    days: { '2015-02-03': [{ title: 'Family notes', kind: 'reflect', summary: 'Notes from the reunion.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt.' } }] },
   }, 'title + first sentence only; private entry never included');
   env.SEALED_DAYS_PUBLIC = 'dates';
   assert.deepEqual((await call('GET', '/api/sealed-days')).data, { days: { '2015-02-03': [{}] } }, 'dates mode: no titles');

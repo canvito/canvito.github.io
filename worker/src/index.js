@@ -201,7 +201,7 @@ async function vaultIndex(env) {
 
 // Public teasers for PROTECTED entries (private entries are never included), so the front page's "Year in Ink" can show
 // sealed dots that ask to unlock. Response: { days: { "YYYY-MM-DD": [ teaser, ... ] } }. SEALED_DAYS_PUBLIC:
-//   "titles" — each teaser is the title + the FIRST SENTENCE of the summary (EN and VI). Nothing else: no body, tags, kind or id.
+//   "titles" — each teaser is the title, kind and the FIRST SENTENCE of the summary (EN and VI). No body, tags, media or id.
 //   "dates" (or "1") — empty teasers: only the day and how many entries.
 //   anything else — off.
 const DAY_RE = /^\d{4}-\d{2}-\d{2}/;
@@ -223,6 +223,7 @@ async function sealedDays(env) {
       const tz = {};
       if (mode === 'titles') {
         tz.title = String(m.title || '').slice(0, 200);
+        tz.kind = String(m.kind || '');
         tz.summary = firstSentence(m.summary);
         if (m.vi?.title || m.vi?.summary) tz.vi = { title: String(m.vi.title || '').slice(0, 200), summary: firstSentence(m.vi.summary) };
       }
