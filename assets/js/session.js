@@ -159,7 +159,7 @@ export async function loadIndex() {
       metas = (await fetchJSON('data/public/index.json'))?.posts || [];
     }
   } else {
-    // Public visitors also learn the days protected entries were written (no titles), shown as sealed dots.
+    // Public visitors also see teasers (title + one sentence) of protected entries, shown as sealed dots.
     const sealed = S.mode === 'public' && S.cfg.workerUrl ? api('/api/sealed-days').catch(() => null) : null;
     metas = (await fetchJSON('data/public/index.json'))?.posts || [];
     if (S.mode === 'guest') {
@@ -170,7 +170,13 @@ export async function loadIndex() {
       }
     }
     const days = (await sealed)?.days || {};
-    S.sealedDays = new Map(Object.entries(days).filter(([d, n]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isInteger(n) && n > 0));
+    const str = (v) => (typeof v === 'string' ? v.slice(0, 240) : '');
+    const teaser = (x) => ({ title: str(x?.title), summary: str(x?.summary), ...(x?.vi ? { vi: { title: str(x.vi.title), summary: str(x.vi.summary) } } : {}) });
+    S.sealedDays = new Map(
+      Object.entries(days)
+        .filter(([d, list]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Array.isArray(list) && list.length)
+        .map(([d, list]) => [d, list.slice(0, 50).map(teaser)]),
+    );
   }
   if (S.mode !== 'public') S.sealedDays = new Map();
   metas.sort((a, b) => (a.date === b.date ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)));

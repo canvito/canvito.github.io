@@ -15,9 +15,10 @@ SESSION_HOURS = "12"
 GUESTBOOK_AUTO_APPROVE = "0"
 # "0" stops recording visits (the database stays: it also holds the access codes).
 VISITOR_COUNTER = "1"
-# "1" lets the public front page show the DAYS of protected entries (count per day only; no titles, kinds or
-# private entries) as sealed dots in "The Year in Ink". "0" hides them.
-SEALED_DAYS_PUBLIC = "1"
+# Sealed dots for PROTECTED entries in the public front page's "The Year in Ink" (private entries never show):
+#   "titles" = day + each entry's title and the first sentence of its summary (EN/VI); clicking asks for a code.
+#   "dates"  = day + how many entries only.   "0" = hide them.
+SEALED_DAYS_PUBLIC = "titles"
 
 # Created by:  npx wrangler kv namespace create KV   (paste the id below)
 [[kv_namespaces]]

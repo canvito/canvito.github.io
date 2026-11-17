@@ -199,23 +199,37 @@ async function vaultIndex(env) {
   return json(idx);
 }
 
-// Public: the DAYS on which protected entries were written, with a count per day (nothing else: no titles, kinds or
-// ids; private entries are never included). Lets the front page's "Year in Ink" show sealed dots that ask to unlock.
-// Off unless SEALED_DAYS_PUBLIC = "1".
+// Public teasers for PROTECTED entries (private entries are never included), so the front page's "Year in Ink" can show
+// sealed dots that ask to unlock. Response: { days: { "YYYY-MM-DD": [ teaser, ... ] } }. SEALED_DAYS_PUBLIC:
+//   "titles" — each teaser is the title + the FIRST SENTENCE of the summary (EN and VI). Nothing else: no body, tags, kind or id.
+//   "dates" (or "1") — empty teasers: only the day and how many entries.
+//   anything else — off.
 const DAY_RE = /^\d{4}-\d{2}-\d{2}/;
+const firstSentence = (s) => {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  const one = t.match(/^.+?[.!?…](?=\s|$)/)?.[0] || t;
+  return one.length > 220 ? `${one.slice(0, 219).trimEnd()}…` : one;
+};
 async function sealedDays(env) {
-  if (env.SEALED_DAYS_PUBLIC !== '1') return json({ days: {} }, 200, { 'cache-control': 'public, max-age=300' });
+  const mode = env.SEALED_DAYS_PUBLIC === '1' ? 'dates' : env.SEALED_DAYS_PUBLIC;
+  const cache = { 'cache-control': 'public, max-age=300' };
+  if (mode !== 'titles' && mode !== 'dates') return json({ days: {} }, 200, cache);
   const envl = await fetchContent(env, 'data/vault/index-protected.json');
   const days = {};
   if (envl) {
     const idx = await openJSON(await protectedKey(env), envl, 'index:protected');
     for (const m of idx.posts) {
       if (m.kind === 'page' || !DAY_RE.test(m.date || '')) continue;
-      const d = m.date.slice(0, 10);
-      days[d] = (days[d] || 0) + 1;
+      const tz = {};
+      if (mode === 'titles') {
+        tz.title = String(m.title || '').slice(0, 200);
+        tz.summary = firstSentence(m.summary);
+        if (m.vi?.title || m.vi?.summary) tz.vi = { title: String(m.vi.title || '').slice(0, 200), summary: firstSentence(m.vi.summary) };
+      }
+      (days[m.date.slice(0, 10)] ||= []).push(tz);
     }
   }
-  return json({ days }, 200, { 'cache-control': 'public, max-age=300' });
+  return json({ days }, 200, cache);
 }
 
 async function loadProtectedPost(env, id) {

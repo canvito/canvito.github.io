@@ -132,8 +132,10 @@ function inkmap(year) {
   for (let d = new Date(start); d.getFullYear() === year; d.setDate(d.getDate() + 1)) {
     const key = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const c = counts.get(key);
-    const sealed = S.sealedDays.get(key) || 0;
-    const sealedNote = sealed ? ` · ${t(sealed > 1 ? '{n} protected entries' : '{n} protected entry', { n: sealed })}` : '';
+    const sealedList = S.sealedDays.get(key) || [];
+    const sealed = sealedList.length;
+    const sealedTitles = sealedList.map((x) => loc(x, 'title')).filter(Boolean);
+    const sealedNote = sealed ? ` · ${t(sealed > 1 ? '{n} protected entries' : '{n} protected entry', { n: sealed })}${sealedTitles.length ? `: ${sealedTitles.join('; ')}` : ''}` : '';
     if (!c && !sealed) cells.push(`<i title="${key}"></i>`);
     else if (!c) cells.push(`<i class="on sealed" role="button" tabindex="0" data-sealed-day="${key}" style="--o:${Math.min(1, 0.55 + sealed * 0.15)}" title="${esc(`${key}${sealedNote} · ${t('Unlock to read')}`)}"></i>`);
     else {
@@ -347,9 +349,14 @@ export function journalView(root, params) {
   const tiers = visibleTiers();
   // Viewing one day (from the Year in Ink) that also has protected entries this visitor can't see yet.
   const qDay = String(f.q || '').match(/date:(\d{4}-\d{2}-\d{2})/)?.[1];
-  const hiddenSealed = qDay ? S.sealedDays.get(qDay) || 0 : 0;
+  const sealedList = qDay ? S.sealedDays.get(qDay) || [] : [];
+  const hiddenSealed = sealedList.length;
+  const teasers = sealedList.filter((x) => x.title);
   const sealedNote = hiddenSealed
-    ? `<p class="sealed-note">${sealHtml('protected')} ${esc(t(hiddenSealed > 1 ? '{n} more protected entries on this day.' : '{n} more protected entry on this day.', { n: hiddenSealed }))} <button type="button" class="linkish" data-unlock-day="${esc(qDay)}">${esc(t('Unlock to read'))}</button></p>`
+    ? `<div class="sealed-day">
+        <p class="sealed-note">${sealHtml('protected')} ${esc(t(hiddenSealed > 1 ? '{n} more protected entries on this day.' : '{n} more protected entry on this day.', { n: hiddenSealed }))} <button type="button" class="linkish" data-unlock-day="${esc(qDay)}">${esc(t('Unlock to read'))}</button></p>
+        ${teasers.map((x) => `<button type="button" class="sealed-teaser" data-unlock-day="${esc(qDay)}"><h3>${esc(loc(x, 'title'))}</h3>${loc(x, 'summary') ? `<p>${esc(loc(x, 'summary'))}</p>` : ''}</button>`).join('')}
+      </div>`
     : '';
 
   let body = '';
@@ -400,7 +407,7 @@ export function journalView(root, params) {
     e.preventDefault();
     document.getElementById(`y-${a.dataset.jump}`)?.scrollIntoView({ behavior: 'smooth' });
   });
-  root.querySelector('[data-unlock-day]')?.addEventListener('click', (e) => {
+  for (const b of root.querySelectorAll('[data-unlock-day]')) b.addEventListener('click', (e) => {
     document.dispatchEvent(new CustomEvent('canvito:unlock', { detail: { then: dayHref(e.currentTarget.dataset.unlockDay) } }));
   });
 }

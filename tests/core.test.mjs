@@ -294,7 +294,7 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   const { io, vault, raw } = await makeVault();
   const img = pngFixture();
   const asset = await vault.addAsset(img, { name: 'p.png' }, 'protected');
-  const prot = await vault.savePost({ title: 'Family notes', date: '2015-02-03', tier: 'protected', body: `![x](media:${asset.id})`, cover: `media:${asset.id}`, assets: [asset] });
+  const prot = await vault.savePost({ title: 'Family notes', summary: 'Notes from the reunion. Who came, what we ate.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt. Ai đến, ăn gì.' }, date: '2015-02-03', tier: 'protected', body: `![x](media:${asset.id})`, cover: `media:${asset.id}`, assets: [asset] });
   const priv = await vault.savePost({ title: 'Diary', date: '2016', tier: 'private', body: 'secret' });
 
   const realFetch = globalThis.fetch;
@@ -347,12 +347,15 @@ test('worker: codes, sessions, protected decryption, revocation, guestbook', asy
   assert.equal(media.res.headers.get('cache-control'), 'no-store', 'decrypted media is never cached');
   assert.equal((await call('GET', '/api/vault/index')).status, 401);
 
-  // Public sealed days: counts per day only, protected tier only, and only when enabled.
-  assert.deepEqual((await call('GET', '/api/sealed-days')).data, { days: {} }, 'off unless SEALED_DAYS_PUBLIC=1');
-  env.SEALED_DAYS_PUBLIC = '1';
+  // Public sealed days: protected tier only, and only when enabled.
+  assert.deepEqual((await call('GET', '/api/sealed-days')).data, { days: {} }, 'off unless SEALED_DAYS_PUBLIC is set');
+  env.SEALED_DAYS_PUBLIC = 'titles';
   const sd = await call('GET', '/api/sealed-days');
-  assert.deepEqual(sd.data, { days: { '2015-02-03': 1 } }, 'day + count only; private entry never included');
-  assert.ok(!JSON.stringify(sd.data).includes('Family'), 'no titles');
+  assert.deepEqual(sd.data, {
+    days: { '2015-02-03': [{ title: 'Family notes', summary: 'Notes from the reunion.', vi: { title: 'Ghi chép gia đình', summary: 'Ghi chép buổi họp mặt.' } }] },
+  }, 'title + first sentence only; private entry never included');
+  env.SEALED_DAYS_PUBLIC = 'dates';
+  assert.deepEqual((await call('GET', '/api/sealed-days')).data, { days: { '2015-02-03': [{}] } }, 'dates mode: no titles');
   delete env.SEALED_DAYS_PUBLIC;
 
   const perm = (await call('POST', '/api/admin/codes', { body: { type: 'permanent', label: 'Friend' }, token: 'admin-token' })).data;
