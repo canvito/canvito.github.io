@@ -2,10 +2,17 @@
   "name": "canvito-life-journey",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test tests/core.test.mjs",
     "serve": "node tools/canvito.mjs serve",
-    "cli": "node tools/canvito.mjs"
+    "cli": "node tools/canvito.mjs",
+    "smoke": "node tests/smoke.mjs",
+    "smoke:live": "node tests/smoke.mjs --live"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.1"
   }
 }
