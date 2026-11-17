@@ -24,6 +24,7 @@ export const S = {
   metas: [],
   byId: new Map(),
   pinned: [],
+  sealedDays: new Map(),
   listeners: new Set(),
 };
 
@@ -158,6 +159,8 @@ export async function loadIndex() {
       metas = (await fetchJSON('data/public/index.json'))?.posts || [];
     }
   } else {
+    // Public visitors also learn the days protected entries were written (no titles), shown as sealed dots.
+    const sealed = S.mode === 'public' && S.cfg.workerUrl ? api('/api/sealed-days').catch(() => null) : null;
     metas = (await fetchJSON('data/public/index.json'))?.posts || [];
     if (S.mode === 'guest') {
       try {
@@ -166,7 +169,10 @@ export async function loadIndex() {
         console.warn(e.message);
       }
     }
+    const days = (await sealed)?.days || {};
+    S.sealedDays = new Map(Object.entries(days).filter(([d, n]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isInteger(n) && n > 0));
   }
+  if (S.mode !== 'public') S.sealedDays = new Map();
   metas.sort((a, b) => (a.date === b.date ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)));
   S.metas = metas;
   S.byId = new Map(metas.map((m) => [m.id, m]));

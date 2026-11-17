@@ -60,6 +60,8 @@ function renderChrome() {
   $$('.owner-only').forEach((el) => (el.hidden = !isOwner()));
 }
 
+document.addEventListener('canvito:unlock', (e) => openUnlock(e.detail?.then));
+
 $('#access').addEventListener('click', async (e) => {
   if (e.target.closest('[data-unlock]')) openUnlock();
   if (e.target.closest('[data-lock]')) {
@@ -109,11 +111,13 @@ function checkIdle() {
 setInterval(checkIdle, 15_000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && checkIdle());
 
-async function openUnlock() {
+// then: a page to open after a successful unlock (e.g. a sealed day clicked on the front page).
+async function openUnlock(then) {
+  const go = () => then && (location.hash = then);
   const m = modal(`
     <div class="seal seal-big">${LOCK_SVG}</div>
     <h2 style="text-align:center">${esc(t('Unlock the journal'))}</h2>
-    <p class="muted" style="text-align:center;font-size:.98rem">${esc(t('Enter the access code you were given.'))}</p>
+    <p class="muted" style="text-align:center;font-size:.98rem">${esc(t(then ? 'This day has protected entries. Enter the access code you were given.' : 'Enter the access code you were given.'))}</p>
     <form id="unlock-form" autocomplete="off">
       <label class="f"><span>${esc(t('Access code'))}</span><input class="t" type="password" name="secret" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
       <div class="ts" id="unlock-ts"></div>
@@ -155,6 +159,7 @@ async function openUnlock() {
       try {
         const r = await unlock(form.elements.secret.value, ts.token());
         m.close();
+        go();
         toast(r.mode === 'owner' ? t('Welcome back. Everything is unsealed.') : t('Welcome{name}. Protected entries are now visible.', { name: r.label ? `, ${r.label}` : '' }));
       } catch (ex) {
         ts.reset();
@@ -169,6 +174,7 @@ async function openUnlock() {
     busy(author, $('#author-err', m.el), t('Sign in &amp; remember this device'), async () => {
       await authorSignIn(author.elements.pass.value, author.elements.token.value);
       m.close();
+      go();
       toast(t('Welcome back. This device will remember you; next time just use your passphrase.'));
     });
   });

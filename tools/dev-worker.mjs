@@ -67,6 +67,7 @@ const env = {
   ALLOW_NO_TURNSTILE: '1',
   SESSION_HOURS: '12',
   GUESTBOOK_AUTO_APPROVE: '0',
+  SEALED_DAYS_PUBLIC: '1',
 };
 
 // Only the files the Worker actually reads are served (never the keyring, private index or .git).

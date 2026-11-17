@@ -199,6 +199,25 @@ async function vaultIndex(env) {
   return json(idx);
 }
 
+// Public: the DAYS on which protected entries were written, with a count per day (nothing else: no titles, kinds or
+// ids; private entries are never included). Lets the front page's "Year in Ink" show sealed dots that ask to unlock.
+// Off unless SEALED_DAYS_PUBLIC = "1".
+const DAY_RE = /^\d{4}-\d{2}-\d{2}/;
+async function sealedDays(env) {
+  if (env.SEALED_DAYS_PUBLIC !== '1') return json({ days: {} }, 200, { 'cache-control': 'public, max-age=300' });
+  const envl = await fetchContent(env, 'data/vault/index-protected.json');
+  const days = {};
+  if (envl) {
+    const idx = await openJSON(await protectedKey(env), envl, 'index:protected');
+    for (const m of idx.posts) {
+      if (m.kind === 'page' || !DAY_RE.test(m.date || '')) continue;
+      const d = m.date.slice(0, 10);
+      days[d] = (days[d] || 0) + 1;
+    }
+  }
+  return json({ days }, 200, { 'cache-control': 'public, max-age=300' });
+}
+
 async function loadProtectedPost(env, id) {
   if (!ID_RE.test(id)) throw new HttpError(404, 'Not found');
   const envl = await fetchContent(env, `data/vault/${id}.json`);
@@ -365,6 +384,7 @@ async function route(req, env) {
   let r;
   if (p === '/api/health') return json({ ok: true, turnstile: !!env.TURNSTILE_SECRET, protected: !!env.PROTECTED_KEY, vault: !!(env.VAULT_TOKEN || env.CONTENT_BASE), codes: !!env.DB, visits: !!env.DB && env.VISITOR_COUNTER !== '0' });
   if (p === '/api/redeem' && m === 'POST') return redeem(req, env);
+  if (p === '/api/sealed-days' && m === 'GET') return sealedDays(env);
   if (p === '/api/session' && m === 'GET') {
     const s = await requireGuest(req, env);
     return json({ ok: true, exp: s.exp, label: s.l });

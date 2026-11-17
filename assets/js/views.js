@@ -132,10 +132,13 @@ function inkmap(year) {
   for (let d = new Date(start); d.getFullYear() === year; d.setDate(d.getDate() + 1)) {
     const key = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const c = counts.get(key);
-    if (!c) cells.push(`<i title="${key}"></i>`);
+    const sealed = S.sealedDays.get(key) || 0;
+    const sealedNote = sealed ? ` · ${t(sealed > 1 ? '{n} protected entries' : '{n} protected entry', { n: sealed })}` : '';
+    if (!c && !sealed) cells.push(`<i title="${key}"></i>`);
+    else if (!c) cells.push(`<i class="on sealed" role="button" tabindex="0" data-sealed-day="${key}" style="--o:${Math.min(1, 0.55 + sealed * 0.15)}" title="${esc(`${key}${sealedNote} · ${t('Unlock to read')}`)}"></i>`);
     else {
       const kind = Object.entries(c.kinds).sort((a, b) => b[1] - a[1])[0][0];
-      cells.push(`<i class="on" data-day="${key}" style="--k:var(--${kind});--o:${Math.min(1, 0.55 + c.n * 0.15)}" title="${esc(t(c.n > 1 ? '{date} · {n} entries' : '{date} · {n} entry', { date: key, n: c.n }))}"></i>`);
+      cells.push(`<i class="on${sealed ? ' has-sealed' : ''}" data-day="${key}" style="--k:var(--${kind});--o:${Math.min(1, 0.55 + c.n * 0.15)}" title="${esc(t(c.n > 1 ? '{date} · {n} entries' : '{date} · {n} entry', { date: key, n: c.n }) + sealedNote)}"></i>`);
     }
   }
   return `<div class="inkmap-wrap"><div class="inkmap">${cells.join('')}</div></div>`;
@@ -166,6 +169,7 @@ export function homeView(root) {
   const all = entries();
   const count = (k) => all.filter((m) => m.kind === k).length;
   const years = [...new Set(all.map((m) => +m.date.slice(0, 4)))].sort((a, b) => b - a);
+  const inkYears = [...new Set([...years, ...[...S.sealedDays.keys()].map((d) => +d.slice(0, 4))])].sort((a, b) => b - a);
   const learn = count('learn');
   const give = count('give');
   const total = learn + give || 1;
@@ -213,11 +217,13 @@ export function homeView(root) {
   ${onThisDay() ? `<div style="margin-top:2rem">${onThisDay()}</div>` : ''}
 
   ${
-    years.length
+    inkYears.length
       ? `<div class="section-head"><h2>${esc(t('The Year in Ink'))}</h2><a class="more" href="#/journal">${esc(t('Full journal →'))}</a></div>
-  <div class="inkmap-head"><div class="year-tabs" role="tablist">${years.map((y, i) => `<button type="button" data-year="${y}" aria-pressed="${i === 0}">${y}</button>`).join('')}</div></div>
-  <div id="inkmap">${inkmap(years[0])}</div>
-  <div class="legend">${Object.keys(KINDS).filter((k) => k !== 'page').map((k) => `<span><i style="--k:var(--${k})"></i>${esc(kindLabel(k))}</span>`).join('')}</div>`
+  <div class="inkmap-head"><div class="year-tabs" role="tablist">${inkYears.map((y, i) => `<button type="button" data-year="${y}" aria-pressed="${i === 0}">${y}</button>`).join('')}</div></div>
+  <div id="inkmap">${inkmap(inkYears[0])}</div>
+  <div class="legend">${Object.keys(KINDS).filter((k) => k !== 'page').map((k) => `<span><i style="--k:var(--${k})"></i>${esc(kindLabel(k))}</span>`).join('')}${
+    S.sealedDays.size ? `<span><i class="sealed-key"></i>${esc(t('Protected (unlock to read)'))}</span>` : ''
+  }</div>`
       : ''
   }
 
@@ -239,11 +245,21 @@ export function homeView(root) {
     $$('.year-tabs button', root).forEach((x) => x.setAttribute('aria-pressed', x === b));
     $('#inkmap', root).innerHTML = inkmap(+b.dataset.year);
   });
+  const openDay = (el) => {
+    if (el.dataset.day) location.hash = dayHref(el.dataset.day);
+    // A sealed day: ask for an access code, then show that day's entries.
+    else if (el.dataset.sealedDay) document.dispatchEvent(new CustomEvent('canvito:unlock', { detail: { then: dayHref(el.dataset.sealedDay) } }));
+  };
   root.addEventListener('click', (e) => {
-    const d = e.target.closest('[data-day]');
-    if (d) location.hash = `#/journal?q=${encodeURIComponent(`date:${d.dataset.day}`)}`;
+    const d = e.target.closest('[data-day],[data-sealed-day]');
+    if (d) openDay(d);
+  });
+  root.addEventListener('keydown', (e) => {
+    const d = (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-sealed-day]');
+    if (d) (e.preventDefault(), openDay(d));
   });
 }
+const dayHref = (day) => `#/journal?q=${encodeURIComponent(`date:${day}`)}`;
 
 // ---------- front page intro ----------
 // A page entry with id "home" is shown at the top of the front page (in Vietnamese when it has a Vietnamese version).
@@ -329,6 +345,12 @@ export function journalView(root, params) {
     return `#/journal${s ? `?${s}` : ''}`;
   };
   const tiers = visibleTiers();
+  // Viewing one day (from the Year in Ink) that also has protected entries this visitor can't see yet.
+  const qDay = String(f.q || '').match(/date:(\d{4}-\d{2}-\d{2})/)?.[1];
+  const hiddenSealed = qDay ? S.sealedDays.get(qDay) || 0 : 0;
+  const sealedNote = hiddenSealed
+    ? `<p class="sealed-note">${sealHtml('protected')} ${esc(t(hiddenSealed > 1 ? '{n} more protected entries on this day.' : '{n} more protected entry on this day.', { n: hiddenSealed }))} <button type="button" class="linkish" data-unlock-day="${esc(qDay)}">${esc(t('Unlock to read'))}</button></p>`
+    : '';
 
   let body = '';
   for (const y of yearKeys) {
@@ -367,7 +389,8 @@ export function journalView(root, params) {
         ${f.tag ? `<span class="sep"></span><a class="chip on" href="${qp({ tag: '' })}">#${esc(f.tag)} ✕</a>` : ''}
       </div>
       ${filtered ? `<p class="result-note">${esc(t(results.length === 1 ? '{n} entry' : '{n} entries', { n: results.length }))}${f.q ? esc(t(' for “{q}”', { q: f.q })) : ''}. <a href="#/journal">${esc(t('Clear'))}</a></p>` : ''}
-      ${body || `<div class="empty">${esc(t(filtered ? 'Nothing matches — try fewer words.' : 'No entries yet.'))}</div>`}
+      ${sealedNote}
+      ${body || (hiddenSealed ? '' : `<div class="empty">${esc(t(filtered ? 'Nothing matches — try fewer words.' : 'No entries yet.'))}</div>`)}
     </div>
   </div>`;
   hydrateCovers(root);
@@ -376,6 +399,9 @@ export function journalView(root, params) {
     if (!a) return;
     e.preventDefault();
     document.getElementById(`y-${a.dataset.jump}`)?.scrollIntoView({ behavior: 'smooth' });
+  });
+  root.querySelector('[data-unlock-day]')?.addEventListener('click', (e) => {
+    document.dispatchEvent(new CustomEvent('canvito:unlock', { detail: { then: dayHref(e.currentTarget.dataset.unlockDay) } }));
   });
 }
 

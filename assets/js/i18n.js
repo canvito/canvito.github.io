@@ -129,6 +129,13 @@ const VI = {
   'All threads →': 'Tất cả chủ đề →',
   '{date} · {n} entry': '{date} · {n} bài',
   '{date} · {n} entries': '{date} · {n} bài',
+  '{n} protected entry': '{n} bài được bảo vệ',
+  '{n} protected entries': '{n} bài được bảo vệ',
+  'Unlock to read': 'Mở khóa để đọc',
+  'Protected (unlock to read)': 'Được bảo vệ (mở khóa để đọc)',
+  '{n} more protected entry on this day.': 'Còn {n} bài được bảo vệ trong ngày này.',
+  '{n} more protected entries on this day.': 'Còn {n} bài được bảo vệ trong ngày này.',
+  'This day has protected entries. Enter the access code you were given.': 'Ngày này có bài được bảo vệ. Hãy nhập mã truy cập bạn đã nhận được.',
   // journal
   Years: 'Năm',
   'Sometime this year': 'Trong năm',
